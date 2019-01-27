@@ -57,7 +57,7 @@ func init() {
 	verbose = v.NewVerbose(options["verboseLevel"].(v.VerbosityLevel))
 
 	// Init the player.
-	ply = NewPLayer(options)
+	ply = NewPlayer(verbose, options)
 	verbose.Debug1f("Init options:\n%s", options.PrettyPrint())
 	if err := ply.Init(); err != nil {
 		verbose.Fail("Initialization failed due to error: ", err)

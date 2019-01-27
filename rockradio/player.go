@@ -6,6 +6,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/koykov/conply"
 	kb "github.com/koykov/helpers/keybind"
+	v "github.com/koykov/helpers/verbose"
 	"github.com/koykov/vlc"
 	"github.com/mikkyang/id3-go"
 	"io/ioutil"
@@ -32,17 +33,17 @@ type Player struct {
 	track   *Track
 	chIdx   uint64
 
-	vlc    *vlc.Vlc
-	status conply.Status
-	ticks  map[string]<-chan time.Time
+	vlc     *vlc.Vlc
+	status  conply.Status
+	ticks   map[string]<-chan time.Time
 	signals map[string]chan bool
-	muxDl sync.Mutex
+	muxDl   sync.Mutex
+
+	verbose *v.Verbose
 }
 
 // The constructor.
-func NewPLayer(options map[string]interface{}) *Player {
-	verbose.Info(Bundle + " " + Version)
-
+func NewPlayer(verbose *v.Verbose, options map[string]interface{}) *Player {
 	ply := Player{
 		cache:  make(conply.ChannelsCache),
 		chIdx:  options["channel"].(uint64),
@@ -55,7 +56,11 @@ func NewPLayer(options map[string]interface{}) *Player {
 		signals: map[string]chan bool{
 			"next": make(chan bool),
 		},
+		verbose: verbose,
 	}
+
+	ply.verbose.Info(Bundle + " " + Version)
+
 	return &ply
 }
 
@@ -63,15 +68,15 @@ func NewPLayer(options map[string]interface{}) *Player {
 // Checks and creates (if needed) environment and hotkeys config file.
 func (ply *Player) Init() error {
 	// Check and create the working environment.
-	verbose.Debug1("Check and prepare the environment")
+	ply.verbose.Debug1("Check and prepare the environment")
 	if err := conply.PrepareEnv(Bundle); err != nil {
-		verbose.Fail("Error preparing the environment")
+		ply.verbose.Fail("Error preparing the environment")
 		return err
 	}
 	if _, err := exec.LookPath("ffmpeg"); err != nil {
-		verbose.Warning("Couldn't find ffmpeg installed. That's not a problem for playing, but downloading will unavailable.")
+		ply.verbose.Warning("Couldn't find ffmpeg installed. That's not a problem for playing, but downloading will unavailable.")
 	}
-	verbose.Debug2("Environment is OK")
+	ply.verbose.Debug2("Environment is OK")
 
 	// Default hotkeys.
 	hotkeys := []*kb.Hotkey{
@@ -82,25 +87,25 @@ func (ply *Player) Init() error {
 	}
 	// Check (and create if needed) hotkeys config file.
 	hkPath, _ := conply.GetHKPath(Bundle)
-	verbose.Debug1("Reading hotkeys config data: ", hkPath)
+	ply.verbose.Debug1("Reading hotkeys config data: ", hkPath)
 	if !conply.FileExists(hkPath) {
-		verbose.Debug2("Hotkeys config data not found")
+		ply.verbose.Debug2("Hotkeys config data not found")
 		err := conply.MarshalFile(hkPath, hotkeys, true)
 		if err != nil {
-			verbose.Fail("Failed attempt of create hotkeys config")
+			ply.verbose.Fail("Failed attempt of create hotkeys config")
 			return err
 		} else {
-			verbose.Debug3("Hotkeys config was filled with default hotkeys list")
+			ply.verbose.Debug3("Hotkeys config was filled with default hotkeys list")
 		}
 	}
 
 	// Initialize VLC player.
 	var err error
-	verbose.Debug1("Initialize VLC")
+	ply.verbose.Debug1("Initialize VLC")
 	if ply.vlc, err = vlc.NewVlc([]string{"--quiet", "--no-video"}); err != nil {
 		return err
 	}
-	verbose.Debug2("VLC is ready")
+	ply.verbose.Debug2("VLC is ready")
 
 	return nil
 }
@@ -113,13 +118,13 @@ func (ply *Player) Release() error {
 
 // Cleanup callback will call before finishing the work.
 func (ply *Player) Cleanup() (err error) {
-	verbose.Debug1("Caught SIGTERM signal")
-	verbose.Debug3("Release keybinding")
+	ply.verbose.Debug1("Caught SIGTERM signal")
+	ply.verbose.Debug3("Release keybinding")
 	err = keybind.Release()
 	if err != nil {
 		return err
 	}
-	verbose.Debug3("Release VLC player")
+	ply.verbose.Debug3("Release VLC player")
 	err = ply.Release()
 	if err != nil {
 		return err
@@ -129,22 +134,22 @@ func (ply *Player) Cleanup() (err error) {
 
 // Catch hotkeys signals.
 func (ply *Player) Catch(signal string) error {
-	verbose.Debug1("caught signal: ", signal)
+	ply.verbose.Debug1("caught signal: ", signal)
 	switch signal {
 	case "sig-toggle-pause":
 		if ply.status == conply.StatusPlay {
 			err := ply.Pause()
 			if err != nil {
-				verbose.Fail("Pause failed due to error: ", err)
+				ply.verbose.Fail("Pause failed due to error: ", err)
 			} else {
-				verbose.Debug2("Playing paused")
+				ply.verbose.Debug2("Playing paused")
 			}
 		} else if ply.status == conply.StatusPause {
 			err := ply.Resume()
 			if err != nil {
-				verbose.Fail("Resume failed due to error: ", err)
+				ply.verbose.Fail("Resume failed due to error: ", err)
 			} else {
-				verbose.Debug2("Playing resumed")
+				ply.verbose.Debug2("Playing resumed")
 			}
 		}
 
@@ -154,9 +159,9 @@ func (ply *Player) Catch(signal string) error {
 		go func(ply *Player) {
 			err := ply.Download()
 			if err != nil {
-				verbose.Fail("Downloading failed with error: ", err)
+				ply.verbose.Fail("Downloading failed with error: ", err)
 			} else {
-				verbose.Debug1("Track has been successfully downloaded")
+				ply.verbose.Debug1("Track has been successfully downloaded")
 			}
 		}(ply)
 	}
@@ -175,13 +180,13 @@ func (ply *Player) Play() (err error) {
 	}
 	switch {
 	case ply.status == conply.StatusPause:
-		verbose.Debug3("Instantly pause new track since current status is Pause")
+		ply.verbose.Debug3("Instantly pause new track since current status is Pause")
 		return ply.vlc.Pause()
 	case ply.status == conply.StatusStop:
-		verbose.Debug3("Instantly stop new track since current status is Pause")
+		ply.verbose.Debug3("Instantly stop new track since current status is Pause")
 		return ply.vlc.Stop()
 	default:
-		verbose.Debug3("Track URL: ", trackUrl)
+		ply.verbose.Debug3("Track URL: ", trackUrl)
 		ply.status = conply.StatusPlay
 	}
 	return
@@ -240,10 +245,10 @@ func (ply *Player) Download() error {
 	dest := dlDir + conply.PS + ply.track.ComposeDlTitle() + ".mp3"
 
 	if conply.FileExists(dest) {
-		verbose.Warningf(`Downloading skipped due to file "%s" already exists`, dest)
+		ply.verbose.Warningf(`Downloading skipped due to file "%s" already exists`, dest)
 		return nil
 	}
-	verbose.Debug3f("Track is ready to download:\n * source URL: %s\n * dest: %s", url, dest)
+	ply.verbose.Debug3f("Track is ready to download:\n * source URL: %s\n * dest: %s", url, dest)
 
 	// Check if ffmpeg installed.
 	ffmpegBin, err := exec.LookPath("ffmpeg")
@@ -259,10 +264,10 @@ func (ply *Player) Download() error {
 	if err := cmd.Wait(); err != nil {
 		return err
 	}
-	verbose.Debug2("Track is successfully downloaded to ", dest)
+	ply.verbose.Debug2("Track is successfully downloaded to ", dest)
 
 	// Try to set ID3 tags.
-	verbose.Debug3("Try to set ID3 tags...")
+	ply.verbose.Debug3("Try to set ID3 tags...")
 	tag, err := id3.Open(dest)
 	if err != nil {
 		return err
@@ -278,7 +283,7 @@ func (ply *Player) Download() error {
 	if err := tag.Close(); err != nil {
 		return err
 	}
-	verbose.Debug3("ID3 tags has been added to track.")
+	ply.verbose.Debug3("ID3 tags has been added to track.")
 
 	return nil
 }

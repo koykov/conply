@@ -12,6 +12,7 @@ const (
 	PS = string(os.PathSeparator)
 )
 
+// The player interface.
 type Player interface {
 	Init() error
 	Release() error
