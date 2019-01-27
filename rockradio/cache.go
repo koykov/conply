@@ -1,23 +1,28 @@
-package conply
+package main
 
 import (
 	"fmt"
+	"github.com/koykov/conply"
 	"strings"
 )
 
+// List of cached channels.
 type ChannelsCache map[uint64]*ChannelCache
 
+// Cached channel.
 type ChannelCache struct {
 	Id    uint64 `json:"id"`
 	Title string `json:"title"`
 }
 
+// Load channels list from the cache.
 func ChannelsFromCache(path string) (ChannelsCache, error) {
 	cc := ChannelsCache{}
-	err := UnmarshalFile(path, &cc)
+	err := conply.UnmarshalFile(path, &cc)
 	return cc, err
 }
 
+// Build a human readable list of a channels.
 func (cc *ChannelsCache) PrettyPrint() string {
 	var res []string
 	for _, channel := range *cc {

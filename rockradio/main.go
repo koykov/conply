@@ -136,7 +136,7 @@ func main() {
 		} else {
 			var err error
 			verbose.Debug2("Get channels from cache")
-			if ply.cache, err = conply.ChannelsFromCache(cacheFile); err != nil {
+			if ply.cache, err = ChannelsFromCache(cacheFile); err != nil {
 				verbose.Fail("Cache reading problem: ", err)
 				_ = conply.Halt(1)
 			} else {

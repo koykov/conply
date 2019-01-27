@@ -28,7 +28,7 @@ const (
 // Rockradio.com player.
 type Player struct {
 	atoken  string
-	cache   conply.ChannelsCache
+	cache   ChannelsCache
 	channel *Channel
 	track   *Track
 	chIdx   uint64
@@ -45,7 +45,7 @@ type Player struct {
 // The constructor.
 func NewPlayer(verbose *v.Verbose, options map[string]interface{}) *Player {
 	ply := Player{
-		cache:  make(conply.ChannelsCache),
+		cache:  make(ChannelsCache),
 		chIdx:  options["channel"].(uint64),
 		status: conply.StatusPlay,
 		ticks: map[string]<-chan time.Time{
@@ -335,7 +335,7 @@ func (ply *Player) RetrieveChannels() error {
 		title := selection.Find("a").Find("span").Text()
 		if exists {
 			cid, _ := strconv.ParseUint(path.Base(id), 0, 64)
-			ply.cache[cid] = &conply.ChannelCache{
+			ply.cache[cid] = &ChannelCache{
 				Id: cid, Title: title,
 			}
 		}
@@ -369,7 +369,8 @@ func (ply *Player) RetrieveTracks() error {
 	if err != nil {
 		return err
 	}
-	for _, track := range channel.Tracks {
+	for i, track := range channel.Tracks {
+		channel.Tracks[i].Content.Assets[0].Url = "https:" + track.Content.Assets[0].Url
 		channel.Length += track.Content.Length
 	}
 

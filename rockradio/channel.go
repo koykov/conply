@@ -13,9 +13,8 @@ type Channel struct {
 // Build a human readable list of a channels.
 func (c *Channel) PrettyPrint() string {
 	list := make([]string, 0)
-	for i, track := range c.Tracks {
-		c.Tracks[i].Content.Assets[0].Url = "https:" + track.Content.Assets[0].Url
-		list = append(list, " * " + track.ComposeTitle())
+	for _, track := range c.Tracks {
+		list = append(list, " * "+track.ComposeTitle())
 	}
 	return strings.Join(list, "\n")
 }
