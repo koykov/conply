@@ -21,7 +21,7 @@ type Player interface {
 	Pause() error
 	Resume() error
 	GetStatus() Status
-	Download() error
+	Download() (error, error)
 	Catch(signal string) error
 	Cleanup() error
 }

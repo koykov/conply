@@ -206,7 +206,7 @@ func main() {
 		err := ply.RetrieveTracks()
 		if err != nil {
 			if attempts >= 3 {
-				// Attemps limit has been exceeded, stop executing.
+				// Attempts limit has been exceeded, stop executing.
 				verbose.Failf("%d failed attempts when retrieve the tracks. Exiting.", attempts)
 				_ = conply.Halt(1)
 				break

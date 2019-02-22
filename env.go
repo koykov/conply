@@ -31,6 +31,7 @@ func GetConfigDir(bundle string) (string, error) {
 	return strings.Join([]string{usr.HomeDir, ".config", bundle}, PS), nil
 }
 
+// Get path to hotkeys config.
 func GetHKPath(bundle string) (string, error) {
 	path, err := GetConfigDir(bundle)
 	return path + PS + "hotkeys.json", err
@@ -45,6 +46,7 @@ func GetCacheDir(bundle string) (string, error) {
 	return strings.Join([]string{usr.HomeDir, ".cache", bundle}, PS), nil
 }
 
+// Get path to channels cache storage.
 func GetChannelsPath(bundle string) (string, error) {
 	path, err := GetCacheDir(bundle)
 	return path + PS + "channels.json", err

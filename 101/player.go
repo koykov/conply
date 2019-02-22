@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
@@ -15,29 +16,33 @@ import (
 	"path"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
 
 const (
-	Bundle      = "rockradio"
-	Version     = "v0.1"
-	CacheExpire = 7 * 24 * 3600
+	Bundle         = "101.ru"
+	Version        = "v0.1"
+	CacheExpire    = 7 * 24 * 3600
+	DelayAfterFail = 5
 )
 
-// Rockradio.com player.
 type Player struct {
-	atoken  string
-	cache   ChannelsCache
-	channel *Channel
-	track   *Track
-	chIdx   uint64
+	cache        ChannelGroups
+	group        *ChannelGroup
+	channel      *ChannelCache
+	track        *Track
+	grIdx        uint64
+	chIdx        uint64
+	nextFetch    uint64
+	prevTrackUid uint64
+	trackUid     uint64
 
-	vlc     *vlc.Vlc
-	status  conply.Status
-	ticks   map[string]<-chan time.Time
-	signals map[string]chan bool
-	muxDl   sync.Mutex
+	vlc    *vlc.Vlc
+	status conply.Status
+	ticks  map[string]<-chan time.Time
+	muxDl  sync.Mutex
 
 	verbose *v.Verbose
 }
@@ -45,16 +50,12 @@ type Player struct {
 // The constructor.
 func NewPlayer(verbose *v.Verbose, options map[string]interface{}) *Player {
 	ply := Player{
-		cache:  make(ChannelsCache),
+		cache:  make(ChannelGroups),
+		grIdx:  options["channel"].(uint64),
 		chIdx:  options["channel"].(uint64),
 		status: conply.StatusPlay,
 		ticks: map[string]<-chan time.Time{
 			"track": make(chan time.Time),
-			"token": make(chan time.Time),
-			"next":  make(chan time.Time),
-		},
-		signals: map[string]chan bool{
-			"next": make(chan bool),
 		},
 		verbose: verbose,
 	}
@@ -82,7 +83,6 @@ func (ply *Player) Init() error {
 	hotkeys := []*kb.Hotkey{
 		{"Pause", "sig-toggle-pause"},
 		{"Control-Shift-k", "sig-toggle-pause"},
-		{"Control-Shift-l", "sig-next"},
 		{"Control-Shift-d", "sig-download"},
 	}
 	// Check (and create if needed) hotkeys config file.
@@ -152,9 +152,6 @@ func (ply *Player) Catch(signal string) error {
 				ply.verbose.Debug2("Playing resumed")
 			}
 		}
-
-	case "sig-next":
-		ply.signals["next"] <- true
 	case "sig-download":
 		go func(ply *Player) {
 			err, warn := ply.Download()
@@ -192,6 +189,7 @@ func (ply *Player) Play() (err error) {
 		ply.verbose.Debug3("Track URL: ", trackUrl)
 		ply.status = conply.StatusPlay
 	}
+	ply.prevTrackUid = ply.trackUid
 	return
 }
 
@@ -230,10 +228,11 @@ func (ply *Player) Download() (error, error) {
 	ply.muxDl.Lock()
 	defer ply.muxDl.Unlock()
 
-	chTitle := ply.cache[ply.chIdx].Title
+	chTitle := ply.channel.Title
 
 	// Check environment.
-	dlDir, err := conply.GetDlDir(Bundle, chTitle)
+	bundle := Bundle + conply.PS + ply.group.Title
+	dlDir, err := conply.GetDlDir(bundle, chTitle)
 	if err != nil {
 		return err, nil
 	}
@@ -252,18 +251,9 @@ func (ply *Player) Download() (error, error) {
 	}
 	ply.verbose.Debug3f("Track is ready to download:\n * source URL: %s\n * dest: %s", url, dest)
 
-	// Check if ffmpeg installed.
-	ffmpegBin, err := exec.LookPath("ffmpeg")
+	// Download the file.
+	err = conply.FileDl(url, dest)
 	if err != nil {
-		return err, nil
-	}
-
-	// Start ffmpeg and wait until it will download and convert the track.
-	cmd := exec.Command(ffmpegBin, "-i", url, dest)
-	if err := cmd.Start(); err != nil {
-		return err, nil
-	}
-	if err := cmd.Wait(); err != nil {
 		return err, nil
 	}
 	ply.verbose.Debug2("Track is successfully downloaded to ", dest)
@@ -274,11 +264,12 @@ func (ply *Player) Download() (error, error) {
 	if err != nil {
 		return err, nil
 	}
-	tag.SetTitle(ply.track.Title)
-	tag.SetArtist(ply.track.Artist)
-	if len(ply.track.Album) > 0 {
-		tag.SetAlbum(ply.track.Album)
-		tag.SetAlbum(ply.track.AlbumDate)
+	about := ply.track.Result.About
+	tag.SetTitle(about.Title)
+	tag.SetArtist(about.Artist)
+	if len(about.Album.Title) > 0 {
+		tag.SetAlbum(about.Album.Title)
+		tag.SetAlbum(about.Album.ReleaseDate)
 	} else {
 		tag.SetAlbum(chTitle)
 	}
@@ -295,66 +286,74 @@ func (ply *Player) SetTrack(track *Track) {
 	ply.track = track
 }
 
-// Fetch fresh audio token.
-func (ply *Player) RetrieveAToken() error {
-	response, err := http.Get("https://www.rockradio.com")
+// Get tree of groups/channels.
+func (ply *Player) RetrieveTree() error {
+	ply.cache = make(ChannelGroups)
+
+	respGroups, err := http.Get("http://101.ru/radio-top")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = respGroups.Body.Close()
+	}()
+
+	docGroups, err := goquery.NewDocumentFromReader(respGroups.Body)
 	if err != nil {
 		return err
 	}
 
-	source, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-	if err := response.Body.Close(); err != nil {
-		return err
-	}
+	var wg sync.WaitGroup
 
-	re := regexp.MustCompile(`"audio_token":"([a-z0-9]+)"`)
-	res := re.FindStringSubmatch(string(source))
-	if res == nil {
-		return errors.New("couldn't parse remote site to retrieve audio token")
-	}
+	docGroups.Find("ul.full.list.menu li").Each(func(i int, selection *goquery.Selection) {
+		title := selection.Find("a").Text()
+		href, exists := selection.Find("a").Attr("href")
+		if exists {
+			id, _ := strconv.ParseUint(path.Base(href), 0, 64)
+			ply.cache[id] = ChannelGroup{
+				id, title, make(map[uint64]ChannelCache),
+			}
 
-	ply.atoken = res[1]
+			wg.Add(1)
+			go func(id uint64) {
+				defer wg.Done()
+
+				respChannels, err := http.Get(fmt.Sprintf("http://101.ru/radio-group/group/%d", id))
+				if err != nil {
+					return
+				}
+				defer func() {
+					_ = respChannels.Body.Close()
+				}()
+				docChannels, err := goquery.NewDocumentFromReader(respChannels.Body)
+				if err != nil {
+					return
+				}
+
+				docChannels.Find("ul.list.list-channels li").Each(func(i int, selection *goquery.Selection) {
+					title := selection.Find("a").Find(".h3").Text()
+					href, exists := selection.Find("a").Attr("href")
+					if exists {
+						cid, _ := strconv.ParseUint(path.Base(href), 0, 64)
+						ply.cache[id].Channels[cid] = ChannelCache{
+							cid, title,
+						}
+					}
+				})
+			}(id)
+		}
+	})
+	wg.Wait()
+
 	return nil
 }
 
-// Get list of channels from remote site.
-func (ply *Player) RetrieveChannels() error {
-	response, err := http.Get("https://www.rockradio.com")
-	if err != nil {
-		return err
-	}
+// Get current track from the channel.
+func (ply *Player) RetrieveTrack() error {
+	ply.nextFetch = 5
 
-	doc, err := goquery.NewDocumentFromReader(response.Body)
-	if err != nil {
-		return err
-	}
-
-	doc.Find("div.submenu.channels li").Each(func(i int, selection *goquery.Selection) {
-		id, exists := selection.Attr("data-channel-id")
-		title := selection.Find("a").Find("span").Text()
-		if exists {
-			cid, _ := strconv.ParseUint(path.Base(id), 0, 64)
-			ply.cache[cid] = &ChannelCache{
-				Id: cid, Title: title,
-			}
-		}
-	})
-
-	return response.Body.Close()
-}
-
-// Get chunk of tracks for nearest ~1/2h.
-func (ply *Player) RetrieveTracks() error {
-	if len(ply.atoken) == 0 {
-		return errors.New("invalid access token")
-	}
-
-	ts := time.Now().UnixNano() / 1000000
-	channelUrl := fmt.Sprintf("https://www.rockradio.com/_papi/v1/rockradio/routines/channel/%d?audio_token=%s&_=%d", ply.chIdx, ply.atoken, ts)
-	response, err := http.Get(channelUrl)
+	playlistUrl := fmt.Sprintf("http://101.ru/api/channel/getTrackOnAir/%d/channel/?dataFormat=json", ply.chIdx)
+	response, err := http.Get(playlistUrl)
 	if err != nil {
 		return err
 	}
@@ -362,21 +361,58 @@ func (ply *Player) RetrieveTracks() error {
 		_ = response.Body.Close()
 	}()
 
-	buf, err := ioutil.ReadAll(response.Body)
+	b, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return err
-	}
-	var channel Channel
-	err = conply.Unmarshal(string(buf), &channel)
-	if err != nil {
-		return err
-	}
-	for i, track := range channel.Tracks {
-		channel.Tracks[i].Content.Assets[0].Url = "https:" + track.Content.Assets[0].Url
-		channel.Length += track.Content.Length
 	}
 
-	ply.channel = &channel
+	err = json.Unmarshal(b, &ply.track)
+	if err != nil {
+		return err
+	}
+
+	for i, file := range ply.track.Result.About.Audio {
+		ply.trackUid = file.TrackUid
+		playUrl := file.Filename
+		// Check case when we got URL without schema and domain.
+		re := regexp.MustCompile(`http:(.)`)
+		res := re.FindStringSubmatch(string(ply.track.Result.About.Audio[0].Filename))
+		prefix := ""
+		if res == nil {
+			prefix = "http://101.ru"
+		}
+		playUrl = prefix + playUrl
+
+		// Check case with wrong URL (ex: http://cdn*.101.ru/vardata/modules/musicdb/files//vardata/modules/musicdb/files/*).
+		//                                                  ^                             ^^
+		re = regexp.MustCompile(`(/vardata/modules/musicdb/files/)`)
+		dres := re.FindAllStringSubmatch(string(playUrl), -1)
+		if len(dres) == 2 {
+			playUrl = strings.Replace(playUrl, "/vardata/modules/musicdb/files/", "", 1)
+		}
+		ply.track.Result.About.Audio[i].Filename = playUrl
+	}
+
+	// Calculate next fetch period. Based on the difference between current timestamp and song start timestamp.
+	diff := uint64(ply.track.Result.Stat.FinishSong - ply.track.Result.Stat.ServerTime)
+	if diff < 5 || diff > 1800 {
+		diff = 5
+	} else {
+		diff -= 3
+	}
+	ply.nextFetch = diff
 
 	return nil
+}
+
+// Look for group and channel by channel ID.
+func (ply *Player) GetByChannelId(cid uint64) (*ChannelGroup, *ChannelCache) {
+	for _, g := range ply.cache {
+		for _, c := range g.Channels {
+			if c.Id == cid {
+				return &g, &c
+			}
+		}
+	}
+	return &ChannelGroup{0, "Undefined", nil}, &ChannelCache{cid, "Undefined"}
 }
