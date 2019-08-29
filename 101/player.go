@@ -305,8 +305,8 @@ func (ply *Player) RetrieveTree() error {
 
 	var wg sync.WaitGroup
 
-	docGroups.Find("ul.full.list.menu li").Each(func(i int, selection *goquery.Selection) {
-		title := selection.Find("a").Text()
+	docGroups.Find("ul.channel-groups li").Each(func(i int, selection *goquery.Selection) {
+		title := strings.Trim(selection.Find("a").Text(), "\n ")
 		href, exists := selection.Find("a").Attr("href")
 		if exists {
 			id, _ := strconv.ParseUint(path.Base(href), 0, 64)

@@ -9,7 +9,7 @@ Make sure you have downloaded *conply* to your *$GOPATH/src*, see [readme](../re
 
 Then run:
 ```bash
-go build -o $GOPATH/bin/101ply github.com/koykov/conply/101ply
+go build -o $GOPATH/bin/101ply github.com/koykov/conply/101
 ```
 
 As a result you should have *rrply* binary in the corresponding directory.
