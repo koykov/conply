@@ -33,11 +33,12 @@ type Player struct {
 	track   *Track
 	chIdx   uint64
 
-	vlc     *vlc.Vlc
-	status  conply.Status
-	ticks   map[string]<-chan time.Time
-	signals map[string]chan bool
-	muxDl   sync.Mutex
+	vlc      *vlc.Vlc
+	status   conply.Status
+	ticks    map[string]<-chan time.Time
+	signals  map[string]chan bool
+	sigUtime int64
+	muxDl    sync.Mutex
 
 	verbose *v.Verbose
 }
@@ -134,6 +135,12 @@ func (ply *Player) Cleanup() (err error) {
 
 // Catch hotkeys signals.
 func (ply *Player) Catch(signal string) error {
+	now := time.Now().UnixNano()
+	if now-ply.sigUtime < conply.SigUtimeMin {
+		return conply.ErrMultipleCatch
+	}
+	ply.sigUtime = now
+
 	ply.verbose.Debug1("caught signal: ", signal)
 	switch signal {
 	case "sig-toggle-pause":

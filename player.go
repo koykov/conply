@@ -1,6 +1,9 @@
 package conply
 
-import "os"
+import (
+	"errors"
+	"os"
+)
 
 type Status int
 
@@ -10,6 +13,12 @@ const (
 	StatusStop
 
 	PS = string(os.PathSeparator)
+
+	SigUtimeMin = 500000
+)
+
+var (
+	ErrMultipleCatch = errors.New("multiple key press caught")
 )
 
 // The player interface.
