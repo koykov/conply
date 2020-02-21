@@ -382,7 +382,7 @@ func (ply *Player) RetrieveTrack() error {
 		ply.trackUid = file.TrackUid
 		playUrl := file.Filename
 		// Check case when we got URL without schema and domain.
-		re := regexp.MustCompile(`http:(.)`)
+		re := regexp.MustCompile(`http[s]*:(.)`)
 		res := re.FindStringSubmatch(string(ply.track.Result.About.Audio[0].Filename))
 		prefix := ""
 		if res == nil {
