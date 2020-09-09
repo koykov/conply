@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/koykov/conply"
 	"strings"
+
+	"github.com/koykov/conply"
 )
 
 // List of cached channels.

@@ -3,12 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/koykov/conply"
-	kb "github.com/koykov/helpers/keybind"
-	v "github.com/koykov/helpers/verbose"
-	"github.com/koykov/vlc"
-	"github.com/mikkyang/id3-go"
 	"io/ioutil"
 	"net/http"
 	"os/exec"
@@ -17,6 +11,14 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/PuerkitoBio/goquery"
+	kb "github.com/koykov/helpers/keybind"
+	v "github.com/koykov/helpers/verbose"
+	"github.com/koykov/vlc"
+	"github.com/mikkyang/id3-go"
+
+	"github.com/koykov/conply"
 )
 
 const (

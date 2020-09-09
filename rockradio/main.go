@@ -4,9 +4,6 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"github.com/koykov/conply"
-	kb "github.com/koykov/helpers/keybind"
-	v "github.com/koykov/helpers/verbose"
 	"os"
 	"os/signal"
 	"strconv"
@@ -14,6 +11,11 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	kb "github.com/koykov/helpers/keybind"
+	v "github.com/koykov/helpers/verbose"
+
+	"github.com/koykov/conply"
 )
 
 var (
