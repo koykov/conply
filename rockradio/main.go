@@ -175,7 +175,8 @@ func main() {
 			} else {
 				verbose.Debug3f("Channel ID from raw value: %v", ply.chIdx)
 			}
-			if _, ok := ply.cache[ply.chIdx]; !ok {
+			channel := ply.cache.GetGroupById(ply.chIdx)
+			if channel == nil {
 				fail = true
 				verbose.Fail("Channel ID you specified doesn't exists, try again")
 			}
@@ -189,7 +190,8 @@ func main() {
 			}
 		}
 	}
-	verbose.Infof("Playing: %s", ply.cache[ply.chIdx].Title)
+	channel := ply.cache.GetGroupById(ply.chIdx)
+	verbose.Infof("Playing: %s", channel.Title)
 
 	var (
 		attempts     = 0

@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path"
 	"regexp"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -48,7 +49,7 @@ type Player struct {
 // The constructor.
 func NewPlayer(verbose *v.Verbose, options map[string]interface{}) *Player {
 	ply := Player{
-		cache:  make(ChannelsCache),
+		cache:  make(ChannelsCache, 0),
 		chIdx:  options["channel"].(uint64),
 		status: conply.StatusPlay,
 		ticks: map[string]<-chan time.Time{
@@ -239,10 +240,10 @@ func (ply *Player) Download() (error, error) {
 	ply.muxDl.Lock()
 	defer ply.muxDl.Unlock()
 
-	chTitle := ply.cache[ply.chIdx].Title
+	channel := ply.cache.GetGroupById(ply.chIdx)
 
 	// Check environment.
-	dlDir, err := conply.GetDlDir(Bundle, chTitle)
+	dlDir, err := conply.GetDlDir(Bundle, channel.Title)
 	if err != nil {
 		return err, nil
 	}
@@ -289,7 +290,7 @@ func (ply *Player) Download() (error, error) {
 		tag.SetAlbum(ply.track.Album)
 		tag.SetAlbum(ply.track.AlbumDate)
 	} else {
-		tag.SetAlbum(chTitle)
+		tag.SetAlbum(channel.Title)
 	}
 	if err := tag.Close(); err != nil {
 		return err, nil
@@ -346,11 +347,14 @@ func (ply *Player) RetrieveChannels() error {
 		title := selection.Find("a").Find("span").Text()
 		if exists {
 			cid, _ := strconv.ParseUint(path.Base(id), 0, 64)
-			ply.cache[cid] = &ChannelCache{
+			ply.cache = append(ply.cache, &ChannelCache{
 				Id: cid, Title: title,
-			}
+			})
 		}
 	})
+
+	// Sort channels for pretty view.
+	sort.Sort(&ply.cache)
 
 	return response.Body.Close()
 }
