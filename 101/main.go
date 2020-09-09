@@ -145,7 +145,7 @@ func main() {
 			case 0:
 				verbose.Infof("%s ID:\n%s", bundle["label_uc"], ply.cache.PrettyPrint())
 			case 1:
-				group := ply.cache[ply.grIdx]
+				group := ply.cache.GetGroupById(ply.grIdx)
 				verbose.Infof("%s ID:\n%s", bundle["label_uc"], group.Channels.PrettyPrint())
 			}
 			attempts := 0
@@ -176,20 +176,20 @@ func main() {
 				}
 				switch k {
 				case 0:
-					if _, ok := ply.cache[idxParsed]; !ok {
+					group := ply.cache.GetGroupById(idxParsed)
+					if group == nil {
 						fail = true
 						verbose.Failf("%s ID you specified doesn't exists, try again", bundle["label_uc"])
 					} else {
-						group := ply.cache[idxParsed]
-						ply.group = &group
+						ply.group = group
 					}
 				case 1:
-					if _, ok := ply.group.Channels[idxParsed]; !ok {
+					channel := ply.group.Channels.GetChannelById(idxParsed)
+					if channel == nil {
 						fail = true
 						verbose.Failf("%s ID you specified doesn't exists, try again", bundle["label_uc"])
 					} else {
-						channel := ply.group.Channels[idxParsed]
-						ply.channel = &channel
+						ply.channel = channel
 					}
 				}
 

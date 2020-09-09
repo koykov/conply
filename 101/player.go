@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -53,7 +54,7 @@ type Player struct {
 // The constructor.
 func NewPlayer(verbose *v.Verbose, options map[string]interface{}) *Player {
 	ply := Player{
-		cache:  make(ChannelGroups),
+		cache:  make(ChannelGroups, 0),
 		grIdx:  options["channel"].(uint64),
 		chIdx:  options["channel"].(uint64),
 		status: conply.StatusPlay,
@@ -297,7 +298,7 @@ func (ply *Player) SetTrack(track *Track) {
 
 // Get tree of groups/channels.
 func (ply *Player) RetrieveTree() error {
-	ply.cache = make(ChannelGroups)
+	ply.cache = make(ChannelGroups, 0)
 
 	respGroups, err := http.Get("http://101.ru/radio-top")
 	if err != nil {
@@ -317,17 +318,17 @@ func (ply *Player) RetrieveTree() error {
 	docGroups.Find("ul.channel-groups li").Each(func(i int, selection *goquery.Selection) {
 		title := strings.Trim(selection.Find("a").Text(), "\n ")
 		href, exists := selection.Find("a").Attr("href")
-		if exists {
+		if exists && len(title) > 0 {
 			id, _ := strconv.ParseUint(path.Base(href), 0, 64)
-			ply.cache[id] = ChannelGroup{
-				id, title, make(map[uint64]ChannelCache),
-			}
+			ply.cache = append(ply.cache, &ChannelGroup{
+				id, title, make([]*ChannelCache, 0),
+			})
 
 			wg.Add(1)
 			go func(id uint64) {
 				defer wg.Done()
 
-				respChannels, err := http.Get(fmt.Sprintf("http://101.ru/radio-group/group/%d", id))
+				respChannels, err := http.Get(fmt.Sprintf("http://101.ru/radio-top/group/%d", id))
 				if err != nil {
 					return
 				}
@@ -339,20 +340,28 @@ func (ply *Player) RetrieveTree() error {
 					return
 				}
 
-				docChannels.Find("ul.list.list-channels li").Each(func(i int, selection *goquery.Selection) {
-					title := selection.Find("a").Find(".h3").Text()
-					href, exists := selection.Find("a").Attr("href")
+				docChannels.Find("div.grid a.grid__title").Each(func(i int, selection *goquery.Selection) {
+					// title := selection.Find("a").Find(".h3").Text()
+					title := selection.Find("span").Text()
+					href, exists := selection.Attr("href")
 					if exists {
 						cid, _ := strconv.ParseUint(path.Base(href), 0, 64)
-						ply.cache[id].Channels[cid] = ChannelCache{
+						group := ply.cache.GetGroupById(id)
+						group.Channels = append(group.Channels, &ChannelCache{
 							cid, title,
-						}
+						})
 					}
 				})
 			}(id)
 		}
 	})
 	wg.Wait()
+
+	// Sort tree for pretty view.
+	for _, cg := range ply.cache {
+		sort.Sort(&cg.Channels)
+	}
+	sort.Sort(&ply.cache)
 
 	return nil
 }
@@ -419,7 +428,7 @@ func (ply *Player) GetByChannelId(cid uint64) (*ChannelGroup, *ChannelCache) {
 	for _, g := range ply.cache {
 		for _, c := range g.Channels {
 			if c.Id == cid {
-				return &g, &c
+				return g, c
 			}
 		}
 	}
