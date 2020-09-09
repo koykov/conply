@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/koykov/conply"
 	"strings"
+
+	"github.com/koykov/conply"
 )
 
 type ChannelGroups map[uint64]ChannelGroup

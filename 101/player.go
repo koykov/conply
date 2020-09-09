@@ -4,12 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/koykov/conply"
-	kb "github.com/koykov/helpers/keybind"
-	v "github.com/koykov/helpers/verbose"
-	"github.com/koykov/vlc"
-	"github.com/mikkyang/id3-go"
 	"io/ioutil"
 	"net/http"
 	"os/exec"
@@ -19,6 +13,14 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/PuerkitoBio/goquery"
+	kb "github.com/koykov/helpers/keybind"
+	v "github.com/koykov/helpers/verbose"
+	"github.com/koykov/vlc"
+	"github.com/mikkyang/id3-go"
+
+	"github.com/koykov/conply"
 )
 
 const (
@@ -383,7 +385,7 @@ func (ply *Player) RetrieveTrack() error {
 		playUrl := file.Filename
 		// Check case when we got URL without schema and domain.
 		re := regexp.MustCompile(`http[s]*:(.)`)
-		res := re.FindStringSubmatch(string(ply.track.Result.About.Audio[0].Filename))
+		res := re.FindStringSubmatch(ply.track.Result.About.Audio[0].Filename)
 		prefix := ""
 		if res == nil {
 			prefix = "http://101.ru"
@@ -393,7 +395,7 @@ func (ply *Player) RetrieveTrack() error {
 		// Check case with wrong URL (ex: http://cdn*.101.ru/vardata/modules/musicdb/files//vardata/modules/musicdb/files/*).
 		//                                                  ^                             ^^
 		re = regexp.MustCompile(`(/vardata/modules/musicdb/files/)`)
-		dres := re.FindAllStringSubmatch(string(playUrl), -1)
+		dres := re.FindAllStringSubmatch(playUrl, -1)
 		if len(dres) == 2 {
 			playUrl = strings.Replace(playUrl, "/vardata/modules/musicdb/files/", "", 1)
 		}
@@ -401,7 +403,7 @@ func (ply *Player) RetrieveTrack() error {
 	}
 
 	// Calculate next fetch period. Based on the difference between current timestamp and song start timestamp.
-	diff := uint64(ply.track.Result.Stat.FinishSong - ply.track.Result.Stat.ServerTime)
+	diff := ply.track.Result.Stat.FinishSong - ply.track.Result.Stat.ServerTime
 	if diff < 5 || diff > 1800 {
 		diff = 5
 	} else {

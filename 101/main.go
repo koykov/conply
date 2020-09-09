@@ -4,15 +4,17 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"github.com/koykov/conply"
-	kb "github.com/koykov/helpers/keybind"
-	v "github.com/koykov/helpers/verbose"
 	"os"
 	"os/signal"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
+
+	kb "github.com/koykov/helpers/keybind"
+	v "github.com/koykov/helpers/verbose"
+
+	"github.com/koykov/conply"
 )
 
 var (
@@ -20,7 +22,6 @@ var (
 	options conply.Options
 	keybind *kb.Keybind
 	verbose *v.Verbose
-	//waitGroup *sync.WaitGroup
 
 	nc0      = flag.Bool("no-cache", false, "Ignore cache data")
 	nc1      = flag.Bool("nc", false, `Alias for "--no-cache"`)
@@ -72,8 +73,6 @@ func init() {
 	if err := keybind.Init(); err != nil {
 		verbose.Fail("Hotkeys will unavailable during this session due to error: ", err)
 	}
-
-	//waitGroup = &sync.WaitGroup{}
 }
 
 func main() {
@@ -124,7 +123,6 @@ func main() {
 		}
 	}
 
-
 	// Ask group/channel ID.
 	if ply.chIdx > 0 {
 		verbose.Debug1f("Channel predefined: %d", ply.chIdx)
@@ -132,11 +130,11 @@ func main() {
 	} else {
 		bundles := []map[string]string{
 			{
-				"label": "group",
+				"label":    "group",
 				"label_uc": "Group",
 			},
 			{
-				"label": "channel",
+				"label":    "channel",
 				"label_uc": "Channel",
 			},
 		}
@@ -222,8 +220,6 @@ func main() {
 				break
 			}
 			verbose.Failf("Got error during retrieve the track: %s. I'll try again after %d seconds.", err, DelayAfterFail)
-			//time.Sleep(DelayAfterFail * time.Second)
-			//continue
 		} else {
 			attempts = 0
 		}
@@ -234,7 +230,6 @@ func main() {
 				verbose.Fail("Play failed due to error: ", err)
 				ply.nextFetch = DelayAfterFail
 			}
-			//time.Sleep(time.Second * time.Duration(ply.nextFetch))
 		}
 		select {
 		case <-ply.ticks["track"]:

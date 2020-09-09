@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/koykov/conply"
 )
 
@@ -53,7 +54,7 @@ func (t *Track) ComposeDlTitle() string {
 
 // Return duration as formatted string like mm:ss.
 func (t *Track) GetDurationStr() string {
-	diff := uint64(t.Result.Stat.FinishSong - t.Result.Stat.ServerTime)
+	diff := t.Result.Stat.FinishSong - t.Result.Stat.ServerTime
 	return conply.FormatTime(diff)
 }
 
