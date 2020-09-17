@@ -276,7 +276,7 @@ func (ply *Player) Download() (error, error) {
 	if err := cmd.Wait(); err != nil {
 		return err, nil
 	}
-	ply.verbose.Debug2("Track is successfully downloaded to ", dest)
+	ply.verbose.Info("Track is successfully downloaded to ", dest)
 
 	// Try to set ID3 tags.
 	ply.verbose.Debug3("Try to set ID3 tags...")
