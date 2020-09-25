@@ -16,6 +16,10 @@ type ChannelCache struct {
 	Title string `json:"title"`
 }
 
+var (
+	defaultCC = ChannelCache{0, "Unknown"}
+)
+
 // Get the channel by given ID.
 func (cc *ChannelsCache) GetGroupById(id uint64) *ChannelCache {
 	for _, group := range *cc {
@@ -23,7 +27,7 @@ func (cc *ChannelsCache) GetGroupById(id uint64) *ChannelCache {
 			return group
 		}
 	}
-	return nil
+	return &defaultCC
 }
 
 // Build a human readable list of a channels.
