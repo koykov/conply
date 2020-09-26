@@ -363,14 +363,23 @@ func (ply *Player) RetrieveChannels() error {
 		}
 		defer func() { _ = responseCP.Body.Close() }()
 
-		buf, err = ioutil.ReadAll(responseCP.Body)
+		bufCP, err := ioutil.ReadAll(responseCP.Body)
 		if err != nil {
 			return err
 		}
 
 		var cp []CurrentlyPlaying
-		if err := json.Unmarshal(buf, &cp); err != nil {
+		if err := json.Unmarshal(bufCP, &cp); err != nil {
 			return err
+		}
+		for _, ch := range cp {
+			reC := regexp.MustCompile("\"key\":\"" + ch.Key + "\",\"name\":\"([^\"]+)\"")
+			if m := reC.FindSubmatch(buf); m != nil {
+				ch.Name = string(m[1])
+			}
+			ply.cache = append(ply.cache, &ChannelCache{
+				Id: ch.Id, Title: ch.Name, Slug: ch.Key,
+			})
 		}
 	}
 

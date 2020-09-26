@@ -10,10 +10,12 @@ type Channel struct {
 	Tracks []Track `json:"tracks"`
 }
 
+// Currently playing representation of the channel.
 type CurrentlyPlaying struct {
 	Id    uint64 `json:"channel_id"`
 	Key   string `json:"channel_key"`
-	Track Track  `json:"track"`
+	Name  string
+	Track Track `json:"track"`
 }
 
 // Build a human readable list of a channels.
