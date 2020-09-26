@@ -345,6 +345,7 @@ func (ply *Player) RetrieveChannels() error {
 
 	if m := re.FindSubmatch(buf); m != nil {
 		// First try to get the app json config.
+		ply.verbose.Debug3("Way #1 was chosen to retrieve the channels.")
 		var app App
 		err = json.Unmarshal(m[1], &app)
 		if err != nil {
@@ -357,6 +358,7 @@ func (ply *Player) RetrieveChannels() error {
 		}
 	} else {
 		// Next try to get channels list from currently playing endpoint.
+		ply.verbose.Debug3("Way #2 was chosen to retrieve the channels.")
 		responseCP, err := http.Get("https://www.rockradio.com/_papi/v1/rockradio/currently_playing")
 		if err != nil {
 			return err
