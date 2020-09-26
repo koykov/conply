@@ -10,6 +10,12 @@ type Channel struct {
 	Tracks []Track `json:"tracks"`
 }
 
+type CurrentlyPlaying struct {
+	Id    uint64 `json:"channel_id"`
+	Key   string `json:"channel_key"`
+	Track Track  `json:"track"`
+}
+
 // Build a human readable list of a channels.
 func (c *Channel) PrettyPrint() string {
 	list := make([]string, 0)

@@ -1,19 +1,17 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os/exec"
-	"path"
 	"regexp"
 	"sort"
-	"strconv"
 	"sync"
 	"time"
 
-	"github.com/PuerkitoBio/goquery"
 	kb "github.com/koykov/helpers/keybind"
 	v "github.com/koykov/helpers/verbose"
 	"github.com/koykov/vlc"
@@ -336,27 +334,50 @@ func (ply *Player) RetrieveChannels() error {
 	if err != nil {
 		return err
 	}
+	defer func() { _ = response.Body.Close() }()
 
-	doc, err := goquery.NewDocumentFromReader(response.Body)
+	re := regexp.MustCompile(`di\.app\.start\((?:\);)?(.*)\);`)
+
+	buf, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return err
 	}
 
-	doc.Find("div.submenu.channels li").Each(func(i int, selection *goquery.Selection) {
-		id, exists := selection.Attr("data-channel-id")
-		title := selection.Find("a").Find("span").Text()
-		if exists {
-			cid, _ := strconv.ParseUint(path.Base(id), 0, 64)
+	if m := re.FindSubmatch(buf); m != nil {
+		// First try to get the app json config.
+		var app App
+		err = json.Unmarshal(m[1], &app)
+		if err != nil {
+			return err
+		}
+		for _, ch := range app.Channels {
 			ply.cache = append(ply.cache, &ChannelCache{
-				Id: cid, Title: title,
+				Id: ch.Id, Title: ch.Name, Slug: ch.Slug,
 			})
 		}
-	})
+	} else {
+		// Next try to get channels list from currently playing endpoint.
+		responseCP, err := http.Get("https://www.rockradio.com/_papi/v1/rockradio/currently_playing")
+		if err != nil {
+			return err
+		}
+		defer func() { _ = responseCP.Body.Close() }()
+
+		buf, err = ioutil.ReadAll(responseCP.Body)
+		if err != nil {
+			return err
+		}
+
+		var cp []CurrentlyPlaying
+		if err := json.Unmarshal(buf, &cp); err != nil {
+			return err
+		}
+	}
 
 	// Sort channels for pretty view.
 	sort.Sort(&ply.cache)
 
-	return response.Body.Close()
+	return nil
 }
 
 // Get chunk of tracks for nearest ~1/2h.

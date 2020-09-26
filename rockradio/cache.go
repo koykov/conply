@@ -14,10 +14,11 @@ type ChannelsCache []*ChannelCache
 type ChannelCache struct {
 	Id    uint64 `json:"id"`
 	Title string `json:"title"`
+	Slug  string `json:"slug"`
 }
 
 var (
-	defaultCC = ChannelCache{0, "Unknown"}
+	defaultCC = ChannelCache{0, "Unknown", "unk"}
 )
 
 // Get the channel by given ID.
