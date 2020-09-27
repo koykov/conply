@@ -52,6 +52,12 @@ func GetChannelsPath(bundle string) (string, error) {
 	return path + PS + "channels.json", err
 }
 
+// Get path to channels cache storage with station key.
+func GetChannelsPathWS(bundle, station string) (string, error) {
+	path, err := GetCacheDir(bundle)
+	return path + PS + station + ".json", err
+}
+
 // Returns absolute path to cache directory.
 func GetDlDir(bundle, channel string) (string, error) {
 	usr, err := user.Current()
