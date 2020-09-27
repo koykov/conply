@@ -375,7 +375,7 @@ func (ply *Player) RetrieveChannels() error {
 			return err
 		}
 		for _, ch := range cp {
-			reC := regexp.MustCompile("\"key\":\"" + ch.Key + "\",\"name\":\"([^\"]+)\"")
+			reC := regexp.MustCompile(`"key":"` + ch.Key + `","name":"([^\"]+)"`)
 			if m := reC.FindSubmatch(buf); m != nil {
 				ch.Name = string(m[1])
 			}
@@ -403,9 +403,7 @@ func (ply *Player) RetrieveTracks() error {
 	if err != nil {
 		return err
 	}
-	defer func() {
-		_ = response.Body.Close()
-	}()
+	defer func() { _ = response.Body.Close() }()
 
 	buf, err := ioutil.ReadAll(response.Body)
 	if err != nil {
