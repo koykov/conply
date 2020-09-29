@@ -28,3 +28,8 @@ func (s *Stations) PrettyPrint() string {
 	}
 	return strings.Join(list, "\n")
 }
+
+// Implement fmt.Stringer
+func (s *Station) String() string {
+	return s.Station
+}
