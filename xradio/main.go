@@ -42,6 +42,7 @@ var (
 		{"zenradio", "zenradio", "https://www.zenradio.com"},
 		{"zenradio.com", "zenradio", "https://www.zenradio.com"},
 	}
+	station *Station
 
 	help     = flag.Bool("help", false, "Program help")
 	nc0      = flag.Bool("no-cache", false, "Ignore cache data")
@@ -55,8 +56,24 @@ var (
 )
 
 func init() {
+	// Get station name.
+	if len(os.Args) < 2 {
+		v.NewVerbose(v.LevelFail).Fail("xradio: missing station operand\nTry \"xradio --help\" for more information")
+		os.Exit(1)
+	}
+	alias := os.Args[1]
+	station = stations.Look(alias)
+	if station == nil {
+		v.NewVerbose(v.LevelFail).Failf("xradio: unknown station \"%s\"\nTry \"xradio --help\" for more information", alias)
+		os.Exit(1)
+	}
+	// Omit arg 1 (station name) to parse flags properly.
+	os.Args = os.Args[1:]
+
+	// Parse flags.
 	flag.Parse()
 
+	// Display help message on --help option and exit.
 	if *help {
 		fmt.Println(`Usage: xradio <station alias> [options]`)
 		fmt.Println(`Options:
@@ -68,7 +85,8 @@ func init() {
 		os.Exit(0)
 	}
 
-	options = conply.Options{}
+	// Prepare options.
+	options = conply.Options{"station": station}
 
 	// Define verbosity level.
 	switch {
@@ -87,19 +105,6 @@ func init() {
 	options["channel"] = uint64(*channel)
 
 	verbose = v.NewVerbose(options["verboseLevel"].(v.VerbosityLevel))
-
-	// Get station name.
-	if len(os.Args) < 2 {
-		verbose.Fail("xradio: missing station operand\nTry \"xradio --help\" for more information")
-		os.Exit(1)
-	}
-	alias := os.Args[1]
-	st := stations.Look(alias)
-	if st == nil {
-		verbose.Failf("xradio: unknown station \"%s\"\nTry \"xradio --help\" for more information", alias)
-		os.Exit(1)
-	}
-	options["station"] = st
 
 	// Init the player.
 	ply = NewPlayer(verbose, options)
