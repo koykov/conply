@@ -10,6 +10,7 @@ type Station struct {
 
 type Stations []Station
 
+// Search station alias in registry of stations.
 func (s *Stations) Look(alias string) *Station {
 	for _, st := range *s {
 		if st.Alias == alias {
@@ -19,6 +20,7 @@ func (s *Stations) Look(alias string) *Station {
 	return nil
 }
 
+// Build a human readable list of a stations.
 func (s *Stations) PrettyPrint() string {
 	list := make([]string, 0)
 	for _, st := range *s {

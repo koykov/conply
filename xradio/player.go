@@ -26,7 +26,7 @@ const (
 	CacheExpire = 7 * 24 * 3600
 )
 
-// Rockradio.com player.
+// Xradio player.
 type Player struct {
 	atoken  string
 	station *Station
