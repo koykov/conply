@@ -44,7 +44,6 @@ var (
 	}
 	station *Station
 
-	help     = flag.Bool("help", false, "Program help")
 	nc0      = flag.Bool("no-cache", false, "Ignore cache data")
 	nc1      = flag.Bool("nc", false, `Alias for "--no-cache"`)
 	channel  = flag.Int("c", 0, "Channel ID.")
@@ -56,12 +55,32 @@ var (
 )
 
 func init() {
-	// Get station name.
+	// Check station alias.
 	if len(os.Args) < 2 {
 		v.NewVerbose(v.LevelFail).Fail("xradio: missing station operand\nTry \"xradio --help\" for more information")
 		os.Exit(1)
 	}
+	// Get station alias.
 	alias := os.Args[1]
+
+	// Check generate mode.
+	if alias == "generate" {
+		generate()
+		os.Exit(0)
+	}
+
+	// Display help message on --help option and exit.
+	if alias == "--help" {
+		fmt.Println(`Usage: xradio [<station alias>|generate] [options]`)
+		fmt.Println(`Options:
+  -c                Channel ID (omit to see list of possible channels)
+  --nc, --no-cache  Ignore cache data
+  -v, -vv, -vvv     Display verbose information of levels 1-3`)
+		fmt.Println("\nStation aliases:")
+		fmt.Println(stations.PrettyPrint())
+		os.Exit(0)
+	}
+
 	station = stations.Look(alias)
 	if station == nil {
 		v.NewVerbose(v.LevelFail).Failf("xradio: unknown station \"%s\"\nTry \"xradio --help\" for more information", alias)
@@ -72,18 +91,6 @@ func init() {
 
 	// Parse flags.
 	flag.Parse()
-
-	// Display help message on --help option and exit.
-	if *help {
-		fmt.Println(`Usage: xradio <station alias> [options]`)
-		fmt.Println(`Options:
-  -c                Channel ID (omit to see list of possible channels)
-  --nc, --no-cache  Ignore cache data
-  -v, -vv, -vvv     Display verbose information of levels 1-3`)
-		fmt.Println("\nStation aliases:")
-		fmt.Println(stations.PrettyPrint())
-		os.Exit(0)
-	}
 
 	// Prepare options.
 	options = conply.Options{"station": station}
@@ -325,5 +332,38 @@ func main() {
 				}
 			}
 		}
+	}
+}
+
+// Generate bash aliases for each station.
+func generate() {
+	verbose = v.NewVerbose(v.LevelInfo)
+	processed := map[string]bool{}
+	for _, st := range stations {
+		if _, ok := processed[st.Key]; ok {
+			continue
+		}
+		processed[st.Key] = true
+
+		body := `#!/bin/bash
+
+if ! command -v xradio &> /dev/null
+then
+    echo "xradio: command not found. Please check https://github.com/koykov/conply/blob/master/xradio/readme.md for installation instructions"
+    exit 1
+fi`
+		body += "\n\nxradio " + st.Key + " \"$@\"\n"
+
+		err := conply.FilePut(st.Key, body)
+		if err != nil {
+			verbose.Fail(err)
+			return
+		}
+		err = os.Chmod(st.Key, 0775)
+		if err != nil {
+			verbose.Fail(err)
+			return
+		}
+		verbose.Infof("generate alias %s for station %s", st.Key, st.Station)
 	}
 }
