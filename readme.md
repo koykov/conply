@@ -9,7 +9,7 @@ Also provide a feature to download the most interesting tracks.
 
 Check [vlc](https://github.com/koykov/vlc/blob/master/readme.md) to install required system tools.
 
-Also some of player bundles may require additional software. E.g., rockradio player requires [ffmpeg](https://www.ffmpeg.org/) for downloading feature, see [rockradio/readme.md](rockradio/readme.md) for explanation and instructions.
+Also some of player bundles may require additional software. E.g., rockradio player requires [ffmpeg](https://www.ffmpeg.org/) for downloading feature, see [xradio/readme.md](xradio/readme.md) for explanation and instructions.
 
 ## Installation
 
