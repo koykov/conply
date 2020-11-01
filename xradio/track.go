@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/koykov/conply"
 )
@@ -40,7 +41,8 @@ func (t *Track) ComposeTitle() string {
 
 // Build track's title to build a download path.
 func (t *Track) ComposeDlTitle() string {
-	return fmt.Sprintf("%s - %s", t.Artist, t.Title)
+	artist, title := strings.ReplaceAll(t.Artist, conply.PS, ""), strings.ReplaceAll(t.Title, conply.PS, "")
+	return fmt.Sprintf("%s - %s", artist, title)
 }
 
 // Return track's URL to play or download.
