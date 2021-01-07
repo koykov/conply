@@ -1,7 +1,7 @@
 Online console player
 =====================
 
-Provides possibility to listen online radio stations without advertising and support of hotkeys.
+Provides possibility to listen online radio stations with hotkeys support and without advertising.
 
 Also provide a feature to download the most interesting tracks.
 
