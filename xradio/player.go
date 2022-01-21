@@ -402,8 +402,7 @@ func (ply *Player) RetrieveTracks() error {
 	}
 
 	ts := time.Now().UnixNano() / 1000000
-	// channelUrl := fmt.Sprintf("https://www.rockradio.com/_papi/v1/rockradio/routines/channel/%d?audio_token=%s&_=%d", ply.chIdx, ply.atoken, ts)
-	channelUrl := fmt.Sprintf("%s/_papi/v1/%s/routines/channel/%d?audio_token=%s&_=%d", ply.station.Station, ply.station.Key, ply.chIdx, ply.atoken, ts)
+	channelUrl := fmt.Sprintf("%s/%s/routines/channel/%d?audio_token=%s&_=%d", ply.station.API, ply.station.Key, ply.chIdx, ply.atoken, ts)
 	response, err := http.Get(channelUrl)
 	if err != nil {
 		return err

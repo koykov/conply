@@ -6,6 +6,7 @@ type Station struct {
 	Alias   string
 	Key     string
 	Station string
+	API     string
 }
 
 type Stations []Station

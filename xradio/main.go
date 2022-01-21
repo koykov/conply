@@ -26,21 +26,21 @@ var (
 	waitGroup *sync.WaitGroup
 
 	stations = Stations{
-		{"rock", "rockradio", "https://www.rockradio.com"},
-		{"rockradio", "rockradio", "https://www.rockradio.com"},
-		{"rockradio.com", "rockradio", "https://www.rockradio.com"},
-		{"jazz", "jazzradio", "https://www.jazzradio.com"},
-		{"jazzradio", "jazzradio", "https://www.jazzradio.com"},
-		{"jazzradio.com", "jazzradio", "https://www.jazzradio.com"},
-		{"classic", "classicradio", "https://www.classicalradio.com"},
-		{"classicradio", "classicradio", "https://www.classicalradio.com"},
-		{"classicradio.com", "classicradio", "https://www.classicalradio.com"},
-		{"tunes", "radiotunes", "https://www.radiotunes.com"},
-		{"radiotunes", "radiotunes", "https://www.radiotunes.com"},
-		{"radiotunes.com", "radiotunes", "https://www.radiotunes.com"},
-		{"zen", "zenradio", "https://www.zenradio.com"},
-		{"zenradio", "zenradio", "https://www.zenradio.com"},
-		{"zenradio.com", "zenradio", "https://www.zenradio.com"},
+		{"rock", "rockradio", "https://www.rockradio.com", "https://api.audioaddict.com/v1"},
+		{"rockradio", "rockradio", "https://www.rockradio.com", "https://api.audioaddict.com/v1"},
+		{"rockradio.com", "rockradio", "https://www.rockradio.com", "https://api.audioaddict.com/v1"},
+		{"jazz", "jazzradio", "https://www.jazzradio.com", "https://api.audioaddict.com/v1"},
+		{"jazzradio", "jazzradio", "https://www.jazzradio.com", "https://api.audioaddict.com/v1"},
+		{"jazzradio.com", "jazzradio", "https://www.jazzradio.com", "https://api.audioaddict.com/v1"},
+		{"classic", "classicradio", "https://www.classicalradio.com", "https://api.audioaddict.com/v1"},
+		{"classicradio", "classicradio", "https://www.classicalradio.com", "https://api.audioaddict.com/v1"},
+		{"classicradio.com", "classicradio", "https://www.classicalradio.com", "https://api.audioaddict.com/v1"},
+		{"tunes", "radiotunes", "https://www.radiotunes.com", "https://api.audioaddict.com/v1"},
+		{"radiotunes", "radiotunes", "https://www.radiotunes.com", "https://api.audioaddict.com/v1"},
+		{"radiotunes.com", "radiotunes", "https://www.radiotunes.com", "https://api.audioaddict.com/v1"},
+		{"zen", "zenradio", "https://www.zenradio.com", "https://api.audioaddict.com/v1"},
+		{"zenradio", "zenradio", "https://www.zenradio.com", "https://api.audioaddict.com/v1"},
+		{"zenradio.com", "zenradio", "https://www.zenradio.com", "https://api.audioaddict.com/v1"},
 	}
 	station *Station
 
