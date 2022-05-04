@@ -20,16 +20,16 @@ type Result struct {
 }
 
 type Short struct {
-	Title             string `json:"title"`
-	TitleTrack        string `json:"titleTrack"`
-	TitleExecutor     string `json:"titleExecutor"`
-	TitleExecutorFull string `json:"titleExecutorFull"`
-	UidTrack          uint64 `json:"uidTrack"`
-	MdbUidTrack       uint64 `json:"mdbUidTrack"`
-	MdbUidExecutor    uint64 `json:"mdbUidExecutor"`
-	MdbExecutorModer  string `json:"mdbExecutorModer"`
-	MdbTrackModer     int    `json:"mdbTrackModer"`
-	ContainExecutors  bool   `json:"containExecutors"`
+	Title             string      `json:"title"`
+	TitleTrack        string      `json:"titleTrack"`
+	TitleExecutor     string      `json:"titleExecutor"`
+	TitleExecutorFull string      `json:"titleExecutorFull"`
+	UidTrack          uint64      `json:"uidTrack"`
+	MdbUidTrack       uint64      `json:"mdbUidTrack"`
+	MdbUidExecutor    uint64      `json:"mdbUidExecutor"`
+	MdbExecutorModer  interface{} `json:"mdbExecutorModer"`
+	MdbTrackModer     int         `json:"mdbTrackModer"`
+	ContainExecutors  bool        `json:"containExecutors"`
 	Cover             struct {
 		CoverOriginal string `json:"coverOriginal"`
 		CoverHTTP     string `json:"coverHTTP"`
@@ -43,11 +43,8 @@ type Short struct {
 		Cover400      string `json:"cover400"`
 		Uid           int    `json:"uid"`
 	} `json:"cover"`
-	ITunes struct {
-		Url   string `json:"url"`
-		Price string `json:"price"`
-	} `json:"iTunes"`
-	Album Album `json:"album"`
+	ITunes interface{} `json:"iTunes"`
+	Album  Album       `json:"album"`
 
 	Sample          string        `json:"sample"`
 	Audiofile       string        `json:"audiofile"`
