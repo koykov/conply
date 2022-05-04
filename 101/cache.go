@@ -15,7 +15,7 @@ type ChannelGroup struct {
 	Channels Channels `json:"channels"`
 }
 
-// Get the group by given ID.
+// GetGroupById returns the group by given ID.
 func (cg *ChannelGroups) GetGroupById(id uint64) *ChannelGroup {
 	for _, group := range *cg {
 		if group.Id == id {
@@ -25,7 +25,7 @@ func (cg *ChannelGroups) GetGroupById(id uint64) *ChannelGroup {
 	return nil
 }
 
-// Build a human readable list of a groups.
+// PrettyPrint builds a human-readable list of a groups.
 func (cg *ChannelGroups) PrettyPrint() string {
 	var res []string
 	for _, group := range *cg {
@@ -53,7 +53,7 @@ type ChannelCache struct {
 	Title string `json:"title"`
 }
 
-// Get the channel from group by given ID.
+// GetChannelById returns the channel from group by given ID.
 func (c *Channels) GetChannelById(id uint64) *ChannelCache {
 	for _, channel := range *c {
 		if channel.Id == id {
@@ -63,7 +63,7 @@ func (c *Channels) GetChannelById(id uint64) *ChannelCache {
 	return nil
 }
 
-// Build a human readable list of a channels.
+// PrettyPrint builds a human-readable list of a channels.
 func (c *Channels) PrettyPrint() string {
 	var res []string
 	for _, channel := range *c {
@@ -84,7 +84,7 @@ func (c *Channels) Less(i, j int) bool {
 	return (*c)[i].Id < (*c)[j].Id
 }
 
-// Load groups/channels list from the cache.
+// ChannelsFromCache loads groups/channels list from the cache.
 func ChannelsFromCache(path string) (ChannelGroups, error) {
 	cc := ChannelGroups{}
 	err := conply.UnmarshalFile(path, &cc)

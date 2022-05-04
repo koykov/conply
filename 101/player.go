@@ -51,7 +51,6 @@ type Player struct {
 	verbose *v.Verbose
 }
 
-// The constructor.
 func NewPlayer(verbose *v.Verbose, options map[string]interface{}) *Player {
 	ply := Player{
 		cache:  make(ChannelGroups, 0),
@@ -69,7 +68,7 @@ func NewPlayer(verbose *v.Verbose, options map[string]interface{}) *Player {
 	return &ply
 }
 
-// Initialize the player.
+// Init initializes the player.
 // Checks and creates (if needed) environment and hotkeys config file.
 func (ply *Player) Init() error {
 	// Check and create the working environment.
@@ -227,7 +226,7 @@ func (ply *Player) Resume() error {
 	return ply.vlc.Resume()
 }
 
-// Get current status.
+// GetStatus returns current status.
 func (ply *Player) GetStatus() conply.Status {
 	return ply.status
 }
@@ -274,12 +273,12 @@ func (ply *Player) Download() (error, error) {
 	if err != nil {
 		return err, nil
 	}
-	about := ply.track.Result.About
+	about := ply.track.Result.Short
 	tag.SetTitle(about.Title)
-	tag.SetArtist(about.Artist)
-	if len(about.Album.Title) > 0 {
-		tag.SetAlbum(about.Album.Title)
-		tag.SetAlbum(about.Album.ReleaseDate)
+	tag.SetArtist(about.TitleExecutor)
+	if len(about.Album.AlbumTitle) > 0 {
+		tag.SetAlbum(about.Album.AlbumTitle)
+		tag.SetAlbum(about.Album.Year)
 	} else {
 		tag.SetAlbum(chTitle)
 	}
@@ -291,12 +290,12 @@ func (ply *Player) Download() (error, error) {
 	return nil, nil
 }
 
-// Sets the current track to play.
+// SetTrack sets the current track to play.
 func (ply *Player) SetTrack(track *Track) {
 	ply.track = track
 }
 
-// Get tree of groups/channels.
+// RetrieveTree returns tree of groups/channels.
 func (ply *Player) RetrieveTree() error {
 	ply.cache = make(ChannelGroups, 0)
 
@@ -366,7 +365,7 @@ func (ply *Player) RetrieveTree() error {
 	return nil
 }
 
-// Get current track from the channel.
+// RetrieveTrack returns current track from the channel.
 func (ply *Player) RetrieveTrack() error {
 	ply.nextFetch = 5
 
@@ -389,27 +388,25 @@ func (ply *Player) RetrieveTrack() error {
 		return err
 	}
 
-	for i, file := range ply.track.Result.About.Audio {
-		ply.trackUid = file.TrackUid
-		playUrl := file.Filename
-		// Check case when we got URL without schema and domain.
-		re := regexp.MustCompile(`http[s]*:(.)`)
-		res := re.FindStringSubmatch(ply.track.Result.About.Audio[0].Filename)
-		prefix := ""
-		if res == nil {
-			prefix = "http://101.ru"
-		}
-		playUrl = prefix + playUrl
-
-		// Check case with wrong URL (ex: http://cdn*.101.ru/vardata/modules/musicdb/files//vardata/modules/musicdb/files/*).
-		//                                                  ^                             ^^
-		re = regexp.MustCompile(`(/vardata/modules/musicdb/files/)`)
-		dres := re.FindAllStringSubmatch(playUrl, -1)
-		if len(dres) == 2 {
-			playUrl = strings.Replace(playUrl, "/vardata/modules/musicdb/files/", "", 1)
-		}
-		ply.track.Result.About.Audio[i].Filename = playUrl
+	ply.trackUid = ply.track.Result.Short.UidTrack
+	playUrl := ply.track.Result.Short.Audiofile
+	// Check case when we got URL without schema and domain.
+	re := regexp.MustCompile(`http[s]*:(.)`)
+	res := re.FindStringSubmatch(ply.track.Result.Short.Audiofile)
+	prefix := ""
+	if res == nil {
+		prefix = "http://101.ru"
 	}
+	playUrl = prefix + playUrl
+
+	// Check case with wrong URL (ex: http://cdn*.101.ru/vardata/modules/musicdb/files//vardata/modules/musicdb/files/*).
+	//                                                  ^                             ^^
+	re = regexp.MustCompile(`(/vardata/modules/musicdb/files/)`)
+	dres := re.FindAllStringSubmatch(playUrl, -1)
+	if len(dres) == 2 {
+		playUrl = strings.Replace(playUrl, "/vardata/modules/musicdb/files/", "", 1)
+	}
+	ply.track.Result.Short.Audiofile = playUrl
 
 	// Calculate next fetch period. Based on the difference between current timestamp and song start timestamp.
 	diff := ply.track.Result.Stat.FinishSong - ply.track.Result.Stat.ServerTime
@@ -423,7 +420,7 @@ func (ply *Player) RetrieveTrack() error {
 	return nil
 }
 
-// Look for group and channel by channel ID.
+// GetByChannelId looks for group and channel by channel ID.
 func (ply *Player) GetByChannelId(cid uint64) (*ChannelGroup, *ChannelCache) {
 	for _, g := range ply.cache {
 		for _, c := range g.Channels {
