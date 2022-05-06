@@ -29,7 +29,7 @@ type Short struct {
 	MdbUidExecutor    uint64      `json:"mdbUidExecutor"`
 	MdbExecutorModer  interface{} `json:"mdbExecutorModer"`
 	MdbTrackModer     int         `json:"mdbTrackModer"`
-	ContainExecutors  bool        `json:"containExecutors"`
+	ContainExecutors  interface{} `json:"containExecutors"`
 	Cover             struct {
 		CoverOriginal string `json:"coverOriginal"`
 		CoverHTTP     string `json:"coverHTTP"`
