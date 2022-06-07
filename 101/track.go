@@ -54,8 +54,8 @@ type Short struct {
 	Isgroup         int           `json:"isgroup"`
 	IsNewTrack      bool          `json:"isNewTrack"`
 	ExecutorsWorked []interface{} `json:"executorsWorked"`
-	ModerTrack      int           `json:"moderTrack"`
-	ModerExecutor   string        `json:"moderExecutor"`
+	ModerTrack      interface{}   `json:"moderTrack"`
+	ModerExecutor   interface{}   `json:"moderExecutor"`
 	TimeUploadTrack int           `json:"timeUploadTrack"`
 	HasVideo        bool          `json:"hasVideo"`
 	Advertising     int           `json:"advertising"`
