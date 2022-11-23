@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -273,12 +272,12 @@ func (ply *Player) Download() (error, error) {
 	if err != nil {
 		return err, nil
 	}
-	about := ply.track.Result.Short
-	tag.SetTitle(about.Title)
-	tag.SetArtist(about.TitleExecutor)
-	if len(about.Album.AlbumTitle) > 0 {
-		tag.SetAlbum(about.Album.AlbumTitle)
-		tag.SetAlbum(about.Album.Year)
+	about := ply.track.GetShort()
+	tag.SetTitle(about.DotString("title"))
+	tag.SetArtist(about.DotString("titleExecutor"))
+	if at := about.DotString("album.albumTitle"); len(at) > 0 {
+		tag.SetAlbum(at)
+		tag.SetAlbum(about.DotString("album.year"))
 	} else {
 		tag.SetAlbum(chTitle)
 	}
@@ -383,16 +382,17 @@ func (ply *Player) RetrieveTrack() error {
 		return err
 	}
 
-	err = json.Unmarshal(b, &ply.track)
-	if err != nil {
+	track := NewTrack()
+	if err = track.Parse(b); err != nil {
 		return err
 	}
+	ply.SetTrack(track)
 
-	ply.trackUid = ply.track.Result.Short.UidTrack
-	playUrl := ply.track.Result.Short.Audiofile
+	ply.trackUid = ply.track.GetUidTrack()
+	playUrl := ply.track.GetAudiofile()
 	// Check case when we got URL without schema and domain.
 	re := regexp.MustCompile(`http[s]*:(.)`)
-	res := re.FindStringSubmatch(ply.track.Result.Short.Audiofile)
+	res := re.FindStringSubmatch(playUrl)
 	prefix := ""
 	if res == nil {
 		prefix = "http://101.ru"
@@ -406,10 +406,10 @@ func (ply *Player) RetrieveTrack() error {
 	if len(dres) == 2 {
 		playUrl = strings.Replace(playUrl, "/vardata/modules/musicdb/files/", "", 1)
 	}
-	ply.track.Result.Short.Audiofile = playUrl
+	ply.track.SetAudiofile(playUrl)
 
 	// Calculate next fetch period. Based on the difference between current timestamp and song start timestamp.
-	diff := ply.track.Result.Stat.FinishSong - ply.track.Result.Stat.ServerTime
+	diff := ply.track.GetDiff()
 	if diff < 5 || diff > 1800 {
 		diff = 5
 	} else {
