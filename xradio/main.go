@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -14,6 +13,7 @@ import (
 
 	kb "github.com/koykov/helpers/keybind"
 	v "github.com/koykov/helpers/verbose"
+	"github.com/koykov/multiflag"
 
 	"github.com/koykov/conply"
 )
@@ -44,12 +44,11 @@ var (
 	}
 	station *Station
 
-	nc0      = flag.Bool("no-cache", false, "Ignore cache data")
-	nc1      = flag.Bool("nc", false, `Alias for "--no-cache"`)
-	channel  = flag.Int("c", 0, "Channel ID.")
-	verbose1 = flag.Bool("v", false, "Verbosity level 1")
-	verbose2 = flag.Bool("vv", false, "Verbosity level 2")
-	verbose3 = flag.Bool("vvv", false, "Verbosity level 3")
+	nc       = multiflag.Bools([]string{"no-cache", "nc"}, false, "Ignore cache data")
+	channel  = multiflag.Ints([]string{"channel", "c"}, 0, "Channel ID.")
+	verbose1 = multiflag.Bool("v", false, "Verbosity level 1")
+	verbose2 = multiflag.Bool("vv", false, "Verbosity level 2")
+	verbose3 = multiflag.Bool("vvv", false, "Verbosity level 3")
 
 	sigStop = make(chan os.Signal)
 )
@@ -90,7 +89,7 @@ func init() {
 	os.Args = os.Args[1:]
 
 	// Parse flags.
-	flag.Parse()
+	multiflag.Parse()
 
 	// Prepare options.
 	options = conply.Options{"station": station}
@@ -107,7 +106,7 @@ func init() {
 		options["verboseLevel"] = v.LevelInfo
 	}
 	// Cache control.
-	options["noCache"] = *nc0 || *nc1
+	options["noCache"] = *nc
 	// Predefined channel.
 	options["channel"] = uint64(*channel)
 
