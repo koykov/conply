@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"testing"
 	"time"
 
 	kb "github.com/koykov/helpers/keybind"
@@ -46,6 +48,7 @@ var (
 
 	nc       = multiflag.Bools([]string{"no-cache", "nc"}, false, "Ignore cache data")
 	channel  = multiflag.Ints([]string{"channel", "c"}, 0, "Channel ID.")
+	ua       = multiflag.Strings([]string{"ua"}, "", "User-Agent to use for station requests")
 	verbose1 = multiflag.Bool("v", false, "Verbosity level 1")
 	verbose2 = multiflag.Bool("vv", false, "Verbosity level 2")
 	verbose3 = multiflag.Bool("vvv", false, "Verbosity level 3")
@@ -54,6 +57,12 @@ var (
 )
 
 func init() {
+	// Skip the CLI bootstrap when this package is compiled into a go test
+	// binary: there is no station operand and no VLC/keybind environment, and
+	// the package's own tests only exercise local helpers.
+	if testing.Testing() {
+		return
+	}
 	// Check station alias.
 	if len(os.Args) < 2 {
 		v.NewVerbose(v.LevelFail).Fail("xradio: missing station operand\nTry \"xradio --help\" for more information")
@@ -74,6 +83,7 @@ func init() {
 		fmt.Println(`Options:
   -c                Channel ID (omit to see list of possible channels)
   --nc, --no-cache  Ignore cache data
+  --ua <string>     User-Agent to use for station requests (env XRADIO_UA)
   -v, -vv, -vvv     Display verbose information of levels 1-3`)
 		fmt.Println("\nStation aliases:")
 		fmt.Println(stations.PrettyPrint())
@@ -109,6 +119,13 @@ func init() {
 	options["noCache"] = *nc
 	// Predefined channel.
 	options["channel"] = uint64(*channel)
+	// User-Agent for station requests: flag wins, env is the fallback, empty
+	// means the built-in browser default.
+	uaVal := *ua
+	if uaVal == "" {
+		uaVal = os.Getenv("XRADIO_UA")
+	}
+	options["userAgent"] = uaVal
 
 	verbose = v.NewVerbose(options["verboseLevel"].(v.VerbosityLevel))
 
@@ -158,7 +175,12 @@ func main() {
 		defer waitGroup.Done()
 		verbose.Debug1("Get audio token")
 		if err := ply.RetrieveAToken(); err != nil {
-			verbose.Fail("Couldn't retrieve audio token: ", err)
+			var cf *conply.CFChallengeError
+			if errors.As(err, &cf) {
+				verbose.Fail(cf.Error())
+			} else {
+				verbose.Fail("Couldn't retrieve audio token: ", err)
+			}
 			_ = conply.Halt(1)
 		} else {
 			verbose.Debug2("Audio token retrieved: ", ply.atoken)
@@ -179,7 +201,12 @@ func main() {
 			verbose.Debug2(`Cache is invalid or expired or "--no-cache" options has applied, try to regenerate it`)
 			verbose.Debug2("Looking for channels list in remote site")
 			if err := ply.RetrieveChannels(); err != nil {
-				verbose.Fail("Couldn't retrieve channels from remote site: ", err)
+				var cf *conply.CFChallengeError
+				if errors.As(err, &cf) {
+					verbose.Fail(cf.Error())
+				} else {
+					verbose.Fail("Couldn't retrieve channels: ", err)
+				}
 				_ = conply.Halt(1)
 			} else {
 				verbose.Debug2f("Channels list has been retrieved from remote site, total retrieved: %d", len(ply.cache))
@@ -251,7 +278,12 @@ func main() {
 		attempts     = 0
 		RefreshToken = func(ply *Player) {
 			if err := ply.RetrieveAToken(); err != nil {
-				verbose.Fail("Couldn't retrieve audio token: ", err)
+				var cf *conply.CFChallengeError
+				if errors.As(err, &cf) {
+					verbose.Fail(cf.Error())
+				} else {
+					verbose.Fail("Couldn't retrieve audio token: ", err)
+				}
 				_ = conply.Halt(1)
 			} else {
 				verbose.Debug2("Audio token retrieved: ", ply.atoken)
@@ -263,6 +295,14 @@ func main() {
 		attempts++
 		err := ply.RetrieveTracks()
 		if err != nil {
+			var cf *conply.CFChallengeError
+			if errors.As(err, &cf) {
+				// A Cloudflare challenge is user-agent based: retrying will not
+				// help, so report it and stop.
+				verbose.Fail(cf.Error())
+				_ = conply.Halt(1)
+				break
+			}
 			if attempts >= 3 {
 				// Attempts limit has been exceeded, stop executing.
 				verbose.Failf("%d failed attempts when retrieve the tracks. Exiting.", attempts)

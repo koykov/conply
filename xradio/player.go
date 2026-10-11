@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os/exec"
 	"regexp"
 	"sort"
@@ -35,6 +33,8 @@ type Player struct {
 	track   *Track
 	chIdx   uint64
 
+	session SessionProvider
+
 	vlc      *vlc.Vlc
 	status   conply.Status
 	ticks    map[string]<-chan time.Time
@@ -47,11 +47,13 @@ type Player struct {
 
 // The constructor.
 func NewPlayer(verbose *v.Verbose, options map[string]interface{}) *Player {
+	ua, _ := options["userAgent"].(string)
 	ply := Player{
 		station: options["station"].(*Station),
 		cache:   make(ChannelsCache, 0),
 		chIdx:   options["channel"].(uint64),
 		status:  conply.StatusPlay,
+		session: newSession(ua),
 		ticks: map[string]<-chan time.Time{
 			"track": make(chan time.Time),
 			"token": make(chan time.Time),
@@ -305,23 +307,17 @@ func (ply *Player) SetTrack(track *Track) {
 	ply.track = track
 }
 
+// atokenRe extracts the audio token from a station page.
+var atokenRe = regexp.MustCompile(`"audio_token":"([a-z0-9]+)"`)
+
 // Fetch fresh audio token.
 func (ply *Player) RetrieveAToken() error {
-	response, err := http.Get(ply.station.Station)
+	source, err := ply.session.Get(ply.station.Station)
 	if err != nil {
 		return err
 	}
 
-	source, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-	if err := response.Body.Close(); err != nil {
-		return err
-	}
-
-	re := regexp.MustCompile(`"audio_token":"([a-z0-9]+)"`)
-	res := re.FindStringSubmatch(string(source))
+	res := atokenRe.FindStringSubmatch(string(source))
 	if res == nil {
 		return errors.New("couldn't parse remote site to retrieve audio token")
 	}
@@ -332,61 +328,27 @@ func (ply *Player) RetrieveAToken() error {
 
 // Get list of channels from remote site.
 func (ply *Player) RetrieveChannels() error {
-	response, err := http.Get(ply.station.Station)
+	buf, err := ply.session.Get(ply.station.Station)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = response.Body.Close() }()
 
 	re := regexp.MustCompile(`di\.app\.start\((?:\);)?(.*)\);`)
-
-	buf, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return err
+	m := re.FindSubmatch(buf)
+	if m == nil {
+		return errors.New("couldn't parse channels from station page")
 	}
 
-	if m := re.FindSubmatch(buf); m != nil {
-		// First try to get the app json config.
-		ply.verbose.Debug3("Way #1 was chosen to retrieve the channels.")
-		var app App
-		err = json.Unmarshal(m[1], &app)
-		if err != nil {
-			return err
-		}
-		for _, ch := range app.Channels {
-			ply.cache = append(ply.cache, &ChannelCache{
-				Id: ch.Id, Title: ch.Name, Slug: ch.Slug,
-			})
-		}
-	} else {
-		// Next try to get channels list from currently playing endpoint.
-		ply.verbose.Debug3("Way #2 was chosen to retrieve the channels.")
-		urlCP := fmt.Sprintf("%s/_papi/v1/%s/currently_playing", ply.station.Station, ply.station.Key)
-		// responseCP, err := http.Get("https://www.rockradio.com/_papi/v1/rockradio/currently_playing")
-		responseCP, err := http.Get(urlCP)
-		if err != nil {
-			return err
-		}
-		defer func() { _ = responseCP.Body.Close() }()
-
-		bufCP, err := ioutil.ReadAll(responseCP.Body)
-		if err != nil {
-			return err
-		}
-
-		var cp []CurrentlyPlaying
-		if err := json.Unmarshal(bufCP, &cp); err != nil {
-			return err
-		}
-		for _, ch := range cp {
-			reC := regexp.MustCompile(`"key":"` + ch.Key + `","name":"([^\"]+)"`)
-			if m := reC.FindSubmatch(buf); m != nil {
-				ch.Name = string(m[1])
-			}
-			ply.cache = append(ply.cache, &ChannelCache{
-				Id: ch.Id, Title: ch.Name, Slug: ch.Key,
-			})
-		}
+	// First try to get the app json config.
+	ply.verbose.Debug3("Way #1 was chosen to retrieve the channels.")
+	var app App
+	if err = json.Unmarshal(m[1], &app); err != nil {
+		return err
+	}
+	for _, ch := range app.Channels {
+		ply.cache = append(ply.cache, &ChannelCache{
+			Id: ch.Id, Title: ch.Name, Slug: ch.Slug,
+		})
 	}
 
 	// Sort channels for pretty view.
@@ -403,16 +365,11 @@ func (ply *Player) RetrieveTracks() error {
 
 	ts := time.Now().UnixNano() / 1000000
 	channelUrl := fmt.Sprintf("%s/%s/routines/channel/%d?audio_token=%s&_=%d", ply.station.API, ply.station.Key, ply.chIdx, ply.atoken, ts)
-	response, err := http.Get(channelUrl)
+	buf, err := ply.session.Get(channelUrl)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = response.Body.Close() }()
 
-	buf, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
 	var channel Channel
 	err = conply.Unmarshal(string(buf), &channel)
 	if err != nil {
