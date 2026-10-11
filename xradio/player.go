@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"os/exec"
 	"regexp"
 	"sort"
@@ -34,6 +35,8 @@ type Player struct {
 	chIdx   uint64
 
 	session SessionProvider
+	uas     []string
+	uaIdx   int
 
 	vlc      *vlc.Vlc
 	status   conply.Status
@@ -47,13 +50,12 @@ type Player struct {
 
 // The constructor.
 func NewPlayer(verbose *v.Verbose, options map[string]interface{}) *Player {
-	ua, _ := options["userAgent"].(string)
 	ply := Player{
 		station: options["station"].(*Station),
 		cache:   make(ChannelsCache, 0),
 		chIdx:   options["channel"].(uint64),
 		status:  conply.StatusPlay,
-		session: newSession(ua),
+		uas:     conply.BrowserUserAgents,
 		ticks: map[string]<-chan time.Time{
 			"track": make(chan time.Time),
 			"token": make(chan time.Time),
@@ -64,10 +66,23 @@ func NewPlayer(verbose *v.Verbose, options map[string]interface{}) *Player {
 		},
 		verbose: verbose,
 	}
+	ply.uaIdx = rand.Intn(len(ply.uas))
+	ply.session = newSession(ply.uas[ply.uaIdx])
 
 	ply.verbose.Info(Bundle + " " + Version)
 
 	return &ply
+}
+
+// rotateUA switches the session to the next User-Agent in the pool.
+// Returns false when there is nothing to rotate to (pool size < 2).
+func (ply *Player) rotateUA() bool {
+	if len(ply.uas) < 2 {
+		return false
+	}
+	ply.uaIdx = (ply.uaIdx + 1) % len(ply.uas)
+	ply.session = newSession(ply.uas[ply.uaIdx])
+	return true
 }
 
 // Initialize the player.
@@ -189,6 +204,9 @@ func (ply *Player) Play() (err error) {
 		return errors.New("undefined track, call SetTrack() first")
 	}
 	trackUrl := ply.track.GetURL()
+	if trackUrl == "" {
+		return errors.New("no playable audio URL for track")
+	}
 	err = ply.vlc.PlayURL(trackUrl)
 	if err != nil {
 		return err
@@ -357,6 +375,11 @@ func (ply *Player) RetrieveChannels() error {
 	return nil
 }
 
+// errNoAudioContent is returned when a fetched tracklist contains no track with
+// a playable audio asset (some AudioAddict guest tokens are served an empty
+// tracklist).
+var errNoAudioContent = errors.New("no audio content in tracklist")
+
 // Get chunk of tracks for nearest ~1/2h.
 func (ply *Player) RetrieveTracks() error {
 	if len(ply.atoken) == 0 {
@@ -375,12 +398,57 @@ func (ply *Player) RetrieveTracks() error {
 	if err != nil {
 		return err
 	}
-	for i, track := range channel.Tracks {
-		channel.Tracks[i].Content.Assets[0].Url = "https:" + track.Content.Assets[0].Url
+
+	playable := make([]Track, 0, len(channel.Tracks))
+	for i := range channel.Tracks {
+		track := &channel.Tracks[i]
+		if len(track.Content.Assets) == 0 || track.Content.Assets[0].Url == "" {
+			continue
+		}
+		track.Content.Assets[0].Url = "https:" + track.Content.Assets[0].Url
 		channel.Length += track.Content.Length
+		playable = append(playable, *track)
 	}
+	if len(playable) == 0 {
+		return errNoAudioContent
+	}
+	channel.Tracks = playable
 
 	ply.channel = &channel
 
 	return nil
+}
+
+// RetrieveTracksWithFallback fetches a tracklist, rotating through the UA pool
+// when a UA is served a tracklist without audio content.
+func (ply *Player) RetrieveTracksWithFallback() error {
+	for attempt := 0; attempt < len(ply.uas); attempt++ {
+		err := ply.RetrieveTracks()
+		if err == nil {
+			return nil
+		}
+		if !errors.Is(err, errNoAudioContent) {
+			return err
+		}
+		// Rotating (and re-minting a token) on the final attempt would only
+		// risk masking the exhausted-pool error below, so stop right away.
+		if attempt == len(ply.uas)-1 {
+			break
+		}
+		if !ply.rotateUA() {
+			break
+		}
+		// The audio token is derived from the User-Agent, so it must be
+		// re-minted after the rotation before the next attempt.
+		if err := ply.RetrieveAToken(); err != nil {
+			var cf *conply.CFChallengeError
+			if errors.As(err, &cf) {
+				return err
+			}
+			// A UA whose page yields an unparseable token must not abort the
+			// whole rotation; move on to the next User-Agent.
+			continue
+		}
+	}
+	return fmt.Errorf("no audio content returned for any of %d user-agents; the service may have changed", len(ply.uas))
 }

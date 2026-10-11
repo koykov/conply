@@ -47,5 +47,8 @@ func (t *Track) ComposeDlTitle() string {
 
 // Return track's URL to play or download.
 func (t *Track) GetURL() string {
+	if t == nil || len(t.Content.Assets) == 0 {
+		return ""
+	}
 	return t.Content.Assets[0].Url
 }

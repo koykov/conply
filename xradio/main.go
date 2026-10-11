@@ -48,7 +48,6 @@ var (
 
 	nc       = multiflag.Bools([]string{"no-cache", "nc"}, false, "Ignore cache data")
 	channel  = multiflag.Ints([]string{"channel", "c"}, 0, "Channel ID.")
-	ua       = multiflag.Strings([]string{"ua"}, "", "User-Agent to use for station requests")
 	verbose1 = multiflag.Bool("v", false, "Verbosity level 1")
 	verbose2 = multiflag.Bool("vv", false, "Verbosity level 2")
 	verbose3 = multiflag.Bool("vvv", false, "Verbosity level 3")
@@ -83,7 +82,6 @@ func init() {
 		fmt.Println(`Options:
   -c                Channel ID (omit to see list of possible channels)
   --nc, --no-cache  Ignore cache data
-  --ua <string>     User-Agent to use for station requests (env XRADIO_UA)
   -v, -vv, -vvv     Display verbose information of levels 1-3`)
 		fmt.Println("\nStation aliases:")
 		fmt.Println(stations.PrettyPrint())
@@ -119,13 +117,6 @@ func init() {
 	options["noCache"] = *nc
 	// Predefined channel.
 	options["channel"] = uint64(*channel)
-	// User-Agent for station requests: flag wins, env is the fallback, empty
-	// means the built-in browser default.
-	uaVal := *ua
-	if uaVal == "" {
-		uaVal = os.Getenv("XRADIO_UA")
-	}
-	options["userAgent"] = uaVal
 
 	verbose = v.NewVerbose(options["verboseLevel"].(v.VerbosityLevel))
 
@@ -158,7 +149,6 @@ func main() {
 
 	// Register cleanup callback.
 	signal.Notify(sigStop, os.Interrupt, syscall.SIGTERM)
-	signal.Notify(sigStop, os.Interrupt, syscall.SIGKILL)
 	go func() {
 		<-sigStop
 		if err := ply.Cleanup(); err != nil {
@@ -293,7 +283,7 @@ func main() {
 	for {
 		// Try to get chunk of tracks.
 		attempts++
-		err := ply.RetrieveTracks()
+		err := ply.RetrieveTracksWithFallback()
 		if err != nil {
 			var cf *conply.CFChallengeError
 			if errors.As(err, &cf) {
