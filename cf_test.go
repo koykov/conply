@@ -3,6 +3,9 @@ package conply
 import (
 	"net/http"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const cfTestURL = "https://example.test/station"
@@ -145,24 +148,14 @@ func TestDetectCF(t *testing.T) {
 			got := DetectCF(tt.resp, tt.body)
 
 			if tt.wantNil {
-				if got != nil {
-					t.Fatalf("DetectCF() = %+v; want nil", got)
-				}
+				require.Nil(t, got, "DetectCF()")
 				return
 			}
 
-			if got == nil {
-				t.Fatalf("DetectCF() = nil; want Kind=%q Status=%d", tt.wantKind, tt.wantStatus)
-			}
-			if got.Kind != tt.wantKind {
-				t.Errorf("Kind = %q; want %q", got.Kind, tt.wantKind)
-			}
-			if got.Status != tt.wantStatus {
-				t.Errorf("Status = %d; want %d", got.Status, tt.wantStatus)
-			}
-			if got.URL != tt.wantURL {
-				t.Errorf("URL = %q; want %q", got.URL, tt.wantURL)
-			}
+			require.NotNil(t, got, "DetectCF() returned nil; want Kind=%q Status=%d", tt.wantKind, tt.wantStatus)
+			assert.Equal(t, tt.wantKind, got.Kind, "Kind")
+			assert.Equal(t, tt.wantStatus, got.Status, "Status")
+			assert.Equal(t, tt.wantURL, got.URL, "URL")
 		})
 	}
 }

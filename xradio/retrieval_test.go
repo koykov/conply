@@ -11,6 +11,8 @@ import (
 	"testing"
 
 	v "github.com/koykov/helpers/verbose"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/koykov/conply"
 )
@@ -110,9 +112,7 @@ func TestTrackGetURL(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			// Must never panic, including for the nil receiver.
-			if got := tt.track.GetURL(); got != tt.want {
-				t.Errorf("GetURL() = %q; want %q", got, tt.want)
-			}
+			assert.Equal(t, tt.want, tt.track.GetURL(), "GetURL()")
 		})
 	}
 }
@@ -207,51 +207,27 @@ func TestRetrieveTracks(t *testing.T) {
 			reqs := append([]capturedRequest(nil), got...)
 			mu.Unlock()
 
-			if len(reqs) != tt.wantRequests {
-				t.Fatalf("HTTP requests = %d; want %d (got %+v)", len(reqs), tt.wantRequests, reqs)
-			}
+			require.Len(t, reqs, tt.wantRequests, "HTTP requests")
 			for _, rq := range reqs {
-				if rq.path != "/testkey/routines/channel/1" {
-					t.Errorf("request path = %q; want %q", rq.path, "/testkey/routines/channel/1")
-				}
-				if !strings.Contains(rq.rawQuery, "audio_token=x") {
-					t.Errorf("request query = %q; want it to contain %q", rq.rawQuery, "audio_token=x")
-				}
+				assert.Equal(t, "/testkey/routines/channel/1", rq.path, "request path")
+				assert.Contains(t, rq.rawQuery, "audio_token=x", "request query")
 			}
 
 			switch {
 			case tt.wantErrNoAudio:
-				if !errors.Is(err, errNoAudioContent) {
-					t.Fatalf("RetrieveTracks() error = %v; want errNoAudioContent", err)
-				}
-				if ply.channel != nil {
-					t.Errorf("ply.channel = %+v; want nil on error", ply.channel)
-				}
+				require.ErrorIs(t, err, errNoAudioContent, "RetrieveTracks()")
+				assert.Nil(t, ply.channel, "ply.channel")
 			case tt.wantErrSub != "":
-				if err == nil {
-					t.Fatalf("RetrieveTracks() error = nil; want it to contain %q", tt.wantErrSub)
-				}
-				if !strings.Contains(err.Error(), tt.wantErrSub) {
-					t.Fatalf("RetrieveTracks() error = %q; want it to contain %q", err.Error(), tt.wantErrSub)
-				}
+				require.Error(t, err, "RetrieveTracks()")
+				assert.Contains(t, err.Error(), tt.wantErrSub, "RetrieveTracks() error")
 			default:
-				if err != nil {
-					t.Fatalf("RetrieveTracks() error = %v; want nil", err)
-				}
-				if ply.channel == nil {
-					t.Fatal("ply.channel = nil; want populated")
-				}
-				if n := len(ply.channel.Tracks); n != tt.wantTracks {
-					t.Fatalf("len(ply.channel.Tracks) = %d; want %d", n, tt.wantTracks)
-				}
+				require.NoError(t, err, "RetrieveTracks()")
+				require.NotNil(t, ply.channel, "ply.channel")
+				require.Len(t, ply.channel.Tracks, tt.wantTracks, "len(ply.channel.Tracks)")
 				for i, want := range tt.wantURLs {
-					if got := ply.channel.Tracks[i].GetURL(); got != want {
-						t.Errorf("Tracks[%d].GetURL() = %q; want %q", i, got, want)
-					}
+					assert.Equal(t, want, ply.channel.Tracks[i].GetURL(), "Tracks[%d].GetURL()", i)
 				}
-				if got := ply.channel.Length; got != tt.wantLength {
-					t.Errorf("ply.channel.Length = %v; want %v", got, tt.wantLength)
-				}
+				assert.Equal(t, tt.wantLength, ply.channel.Length, "ply.channel.Length")
 			}
 		})
 	}
@@ -286,15 +262,9 @@ func TestRotateUA(t *testing.T) {
 
 			ply := &Player{uas: tt.uas, uaIdx: tt.start, session: newSession("initial-UA")}
 
-			if got := ply.rotateUA(); got != tt.wantOK {
-				t.Fatalf("rotateUA() = %v; want %v", got, tt.wantOK)
-			}
-			if ply.uaIdx != tt.wantIdx {
-				t.Errorf("uaIdx = %d; want %d", ply.uaIdx, tt.wantIdx)
-			}
-			if ply.session == nil {
-				t.Fatal("session = nil after rotateUA")
-			}
+			require.Equal(t, tt.wantOK, ply.rotateUA(), "rotateUA()")
+			assert.Equal(t, tt.wantIdx, ply.uaIdx, "uaIdx")
+			require.NotNil(t, ply.session, "session after rotateUA")
 
 			// On a successful rotation the session must be rebuilt from the
 			// new UA; on a failed one the original session must be untouched.
@@ -302,12 +272,9 @@ func TestRotateUA(t *testing.T) {
 			if tt.wantOK {
 				wantUA = tt.uas[tt.wantIdx]
 			}
-			if _, err := ply.session.Get(srv.URL); err != nil {
-				t.Fatalf("session.Get: %v", err)
-			}
-			if got := <-hits; got != wantUA {
-				t.Errorf("request User-Agent = %q; want %q", got, wantUA)
-			}
+			_, err := ply.session.Get(srv.URL)
+			require.NoError(t, err, "session.Get")
+			assert.Equal(t, wantUA, <-hits, "request User-Agent")
 		})
 	}
 }
@@ -339,15 +306,10 @@ func TestRetrieveTracksWithFallbackRotatesToPlayableUA(t *testing.T) {
 	defer srv.Close()
 
 	ply := newTestPlayer(srv.URL, srv.URL, "testkey", "tok", 1, uas, 0)
-	if err := ply.RetrieveTracksWithFallback(); err != nil {
-		t.Fatalf("RetrieveTracksWithFallback() error = %v; want nil", err)
-	}
-	if got := atomic.LoadInt32(&channelReqs); got < 2 {
-		t.Errorf("channel requests = %d; want >= 2 (fallback did not rotate)", got)
-	}
-	if ply.channel == nil || len(ply.channel.Tracks) != 2 {
-		t.Fatalf("ply.channel = %+v; want 2 playable tracks", ply.channel)
-	}
+	require.NoError(t, ply.RetrieveTracksWithFallback())
+	assert.GreaterOrEqual(t, atomic.LoadInt32(&channelReqs), int32(2), "channel requests (fallback did not rotate)")
+	require.NotNil(t, ply.channel, "ply.channel")
+	require.Len(t, ply.channel.Tracks, 2, "ply.channel.Tracks")
 }
 
 // TestRetrieveTracksWithFallbackExhausted: every UA is served an empty
@@ -369,20 +331,12 @@ func TestRetrieveTracksWithFallbackExhausted(t *testing.T) {
 
 	ply := newTestPlayer(srv.URL, srv.URL, "testkey", "tok", 1, uas, 0)
 	err := ply.RetrieveTracksWithFallback()
-	if err == nil {
-		t.Fatal("RetrieveTracksWithFallback() error = nil; want exhausted-pool error")
-	}
+	require.Error(t, err, "RetrieveTracksWithFallback()")
 
 	var cf *conply.CFChallengeError
-	if errors.As(err, &cf) {
-		t.Fatalf("error = %v (%T); want plain exhausted-pool error, got CFChallengeError", err, err)
-	}
-	if !strings.Contains(err.Error(), "user-agents") {
-		t.Errorf("error = %q; want it to mention the user-agent pool", err.Error())
-	}
-	if got := atomic.LoadInt32(&channelReqs); got != int32(len(uas)) {
-		t.Errorf("channel requests = %d; want %d (one per UA)", got, len(uas))
-	}
+	require.False(t, errors.As(err, &cf), "error = %v (%T); want plain exhausted-pool error, got CFChallengeError", err, err)
+	assert.Contains(t, err.Error(), "user-agents", "error")
+	assert.Equal(t, int32(len(uas)), atomic.LoadInt32(&channelReqs), "channel requests (one per UA)")
 }
 
 // TestRetrieveTracksWithFallbackCFNoRotation: a Cloudflare challenge from
@@ -408,20 +362,12 @@ func TestRetrieveTracksWithFallbackCFNoRotation(t *testing.T) {
 
 	ply := newTestPlayer(srv.URL, srv.URL, "testkey", "tok", 1, uas, 0)
 	err := ply.RetrieveTracksWithFallback()
-	if err == nil {
-		t.Fatal("RetrieveTracksWithFallback() error = nil; want a Cloudflare challenge")
-	}
+	require.Error(t, err, "RetrieveTracksWithFallback()")
 
 	var cf *conply.CFChallengeError
-	if !errors.As(err, &cf) {
-		t.Fatalf("error = %v (%T); want *conply.CFChallengeError", err, err)
-	}
-	if got := atomic.LoadInt32(&channelReqs); got != 1 {
-		t.Errorf("channel requests = %d; want 1 (must not rotate on CF challenge)", got)
-	}
-	if got := atomic.LoadInt32(&stationReqs); got != 0 {
-		t.Errorf("station requests = %d; want 0 (must not re-mint token on CF challenge)", got)
-	}
+	require.ErrorAs(t, err, &cf)
+	assert.Equal(t, int32(1), atomic.LoadInt32(&channelReqs), "channel requests (must not rotate on CF challenge)")
+	assert.Equal(t, int32(0), atomic.LoadInt32(&stationReqs), "station requests (must not re-mint token on CF challenge)")
 }
 
 // TestRetrieveTracksWithFallbackContinuesOnUnparseableToken: when the rotated
@@ -454,18 +400,11 @@ func TestRetrieveTracksWithFallbackContinuesOnUnparseableToken(t *testing.T) {
 	defer srv.Close()
 
 	ply := newTestPlayer(srv.URL, srv.URL, "testkey", "tok", 1, uas, 0)
-	if err := ply.RetrieveTracksWithFallback(); err != nil {
-		t.Fatalf("RetrieveTracksWithFallback() error = %v; want nil (must continue past unparseable token)", err)
-	}
-	if got := atomic.LoadInt32(&channelReqs); got != int32(len(uas)) {
-		t.Errorf("channel requests = %d; want %d (loop must not abort on unparseable token)", got, len(uas))
-	}
-	if got := atomic.LoadInt32(&stationReqs); got != int32(len(uas)-1) {
-		t.Errorf("station requests = %d; want %d (one token refresh per rotation)", got, len(uas)-1)
-	}
-	if ply.channel == nil || len(ply.channel.Tracks) != 1 {
-		t.Fatalf("ply.channel = %+v; want 1 playable track", ply.channel)
-	}
+	require.NoError(t, ply.RetrieveTracksWithFallback(), "must continue past unparseable token")
+	assert.Equal(t, int32(len(uas)), atomic.LoadInt32(&channelReqs), "channel requests (loop must not abort on unparseable token)")
+	assert.Equal(t, int32(len(uas)-1), atomic.LoadInt32(&stationReqs), "station requests (one token refresh per rotation)")
+	require.NotNil(t, ply.channel, "ply.channel")
+	require.Len(t, ply.channel.Tracks, 1, "ply.channel.Tracks")
 }
 
 // ---------------------------------------------------------------------------
@@ -482,23 +421,12 @@ func TestNewPlayerRandomStart(t *testing.T) {
 
 	for i := 0; i < 16; i++ {
 		ply := NewPlayer(verbose, options)
-		if ply == nil {
-			t.Fatal("NewPlayer() = nil")
-		}
-		if len(ply.uas) == 0 {
-			t.Fatal("NewPlayer() built a player with an empty UA pool")
-		}
-		if ply.uaIdx < 0 || ply.uaIdx >= len(ply.uas) {
-			t.Fatalf("uaIdx = %d; want in [0, %d)", ply.uaIdx, len(ply.uas))
-		}
-		if ply.session == nil {
-			t.Fatal("session = nil; want a constructed session")
-		}
-		if ply.station != station {
-			t.Errorf("station = %+v; want the option-provided station", ply.station)
-		}
-		if ply.chIdx != chIdx {
-			t.Errorf("chIdx = %d; want %d", ply.chIdx, chIdx)
-		}
+		require.NotNil(t, ply, "NewPlayer()")
+		require.NotEmpty(t, ply.uas, "NewPlayer() built a player with an empty UA pool")
+		require.GreaterOrEqual(t, ply.uaIdx, 0, "uaIdx")
+		require.Less(t, ply.uaIdx, len(ply.uas), "uaIdx")
+		require.NotNil(t, ply.session, "session")
+		assert.Same(t, station, ply.station, "station")
+		assert.Equal(t, chIdx, ply.chIdx, "chIdx")
 	}
 }

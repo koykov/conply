@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestAudioTokenRegex(t *testing.T) {
 	cases := []struct {
@@ -48,9 +52,7 @@ func TestAudioTokenRegex(t *testing.T) {
 			if m != nil {
 				got = m[1]
 			}
-			if got != tt.want {
-				t.Fatalf("atokenRe.FindStringSubmatch(%q) capture = %q; want %q", tt.html, got, tt.want)
-			}
+			require.Equal(t, tt.want, got, "atokenRe.FindStringSubmatch(%q) capture", tt.html)
 		})
 	}
 }

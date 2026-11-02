@@ -10,6 +10,7 @@ require (
 	github.com/koykov/vector v1.2.6
 	github.com/koykov/vlc v0.0.0-20190106071822-e643fdfff717
 	github.com/mikkyang/id3-go v0.0.0-20191012064224-2c6ab3bb1fbd
+	github.com/stretchr/testify v1.12.1
 )
 
 require (
@@ -24,5 +25,6 @@ require (
 	github.com/koykov/entry v1.0.2 // indirect
 	github.com/koykov/indirect v1.0.1 // indirect
 	github.com/koykov/openrt v0.0.0-20240411200908-3abd933415e1 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/net v0.29.0 // indirect
 )

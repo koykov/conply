@@ -9,6 +9,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/koykov/conply"
 )
 
@@ -67,42 +70,26 @@ func TestUASessionGet(t *testing.T) {
 			body, err := s.Get(srv.URL)
 
 			if !tt.wantErr {
-				if err != nil {
-					t.Fatalf("Get() error = %v; want nil", err)
-				}
-				if string(body) != tt.wantBody {
-					t.Errorf("Get() body = %q; want %q", string(body), tt.wantBody)
-				}
+				require.NoError(t, err, "Get()")
+				assert.Equal(t, tt.wantBody, string(body), "Get() body")
 				return
 			}
 
-			if err == nil {
-				t.Fatal("Get() error = nil; want non-nil")
-			}
-			if body != nil {
-				t.Errorf("Get() body = %q; want nil on error", string(body))
-			}
+			require.Error(t, err, "Get()")
+			assert.Nil(t, body, "Get() body")
 
 			var cf *conply.CFChallengeError
 			if tt.wantCFKind != "" {
-				if !errors.As(err, &cf) {
-					t.Fatalf("error = %v (%T); want *conply.CFChallengeError", err, err)
-				}
-				if cf.Kind != tt.wantCFKind {
-					t.Errorf("CFChallengeError.Kind = %q; want %q", cf.Kind, tt.wantCFKind)
-				}
-				if cf.Status != http.StatusForbidden {
-					t.Errorf("CFChallengeError.Status = %d; want %d", cf.Status, http.StatusForbidden)
-				}
+				require.ErrorAs(t, err, &cf)
+				assert.Equal(t, tt.wantCFKind, cf.Kind, "CFChallengeError.Kind")
+				assert.Equal(t, http.StatusForbidden, cf.Status, "CFChallengeError.Status")
 				return
 			}
 
 			// Generic error path: must NOT be reported as a CF challenge.
-			if errors.As(err, &cf) {
-				t.Fatalf("error = %v; want generic error, got CFChallengeError", err)
-			}
-			if tt.wantErrSub != "" && !strings.Contains(err.Error(), tt.wantErrSub) {
-				t.Errorf("error = %q; want it to contain %q", err.Error(), tt.wantErrSub)
+			require.False(t, errors.As(err, &cf), "error = %v; want generic error, got CFChallengeError", err)
+			if tt.wantErrSub != "" {
+				assert.Contains(t, err.Error(), tt.wantErrSub, "error")
 			}
 		})
 	}
@@ -125,22 +112,15 @@ func TestUASessionGetDrainsErrorBody(t *testing.T) {
 	defer srv.Close()
 
 	s := newSession("")
-	if body, err := s.Get(srv.URL); err == nil {
-		t.Fatalf("first Get() error = nil (body %q); want non-nil", string(body))
-	}
+	_, err := s.Get(srv.URL)
+	require.Error(t, err, "first Get()")
 
 	body, err := s.Get(srv.URL)
-	if err != nil {
-		t.Fatalf("second Get() error = %v; want nil", err)
-	}
-	if string(body) != "ok" {
-		t.Errorf("second Get() body = %q; want %q", string(body), "ok")
-	}
+	require.NoError(t, err, "second Get()")
+	assert.Equal(t, "ok", string(body), "second Get() body")
 }
 
 func TestUASessionName(t *testing.T) {
 	s := newSession("")
-	if got := s.Name(); got != "user-agent" {
-		t.Errorf("Name() = %q; want %q", got, "user-agent")
-	}
+	assert.Equal(t, "user-agent", s.Name(), "Name()")
 }

@@ -5,6 +5,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // capturedHeaders is what the test server observed for a single request.
@@ -73,30 +76,20 @@ func TestNewBrowserClientInjectsHeaders(t *testing.T) {
 
 			client := NewBrowserClient(tt.newUA)
 			req, err := http.NewRequest(http.MethodGet, srv.URL, nil)
-			if err != nil {
-				t.Fatalf("http.NewRequest: %v", err)
-			}
+			require.NoError(t, err, "http.NewRequest")
 			if tt.requestUA != "" {
 				req.Header.Set("User-Agent", tt.requestUA)
 			}
 
 			resp, err := client.Do(req)
-			if err != nil {
-				t.Fatalf("client.Do: %v", err)
-			}
+			require.NoError(t, err, "client.Do")
 			_, _ = io.Copy(io.Discard, resp.Body)
 			_ = resp.Body.Close()
 
 			got := <-hits
-			if got.userAgent != tt.wantUA {
-				t.Errorf("User-Agent = %q; want %q", got.userAgent, tt.wantUA)
-			}
-			if got.accept != tt.wantAccept {
-				t.Errorf("Accept = %q; want %q", got.accept, tt.wantAccept)
-			}
-			if got.acceptLanguage != tt.wantAcceptLang {
-				t.Errorf("Accept-Language = %q; want %q", got.acceptLanguage, tt.wantAcceptLang)
-			}
+			assert.Equal(t, tt.wantUA, got.userAgent, "User-Agent")
+			assert.Equal(t, tt.wantAccept, got.accept, "Accept")
+			assert.Equal(t, tt.wantAcceptLang, got.acceptLanguage, "Accept-Language")
 		})
 	}
 }

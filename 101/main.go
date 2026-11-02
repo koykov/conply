@@ -155,7 +155,7 @@ func main() {
 				var idxParsed uint64
 				if err != nil {
 					fail = true
-					verbose.Failf("Couldn't receive %s ID from stdin: ", bundle["label"], err)
+					verbose.Failf("Couldn't receive %s ID from stdin: %s", bundle["label"], err.Error())
 				}
 				verbose.Debug2f("Raw value you specified: %#v", idx)
 				switch k {
@@ -168,7 +168,7 @@ func main() {
 				}
 				if err != nil {
 					fail = true
-					verbose.Failf("Couldn't convert value to %s ID: ", bundle["label"], err)
+					verbose.Failf("Couldn't convert value to %s ID: %s", bundle["label"], err.Error())
 				} else {
 					verbose.Debug3f("%s ID from raw value: %v", bundle["label_uc"], idxParsed)
 				}
