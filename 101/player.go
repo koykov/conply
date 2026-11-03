@@ -50,7 +50,7 @@ type Player struct {
 	verbose *v.Verbose
 }
 
-func NewPlayer(verbose *v.Verbose, options map[string]interface{}) *Player {
+func NewPlayer(verbose *v.Verbose, options map[string]any) *Player {
 	ply := Player{
 		cache:  make(ChannelGroups, 0),
 		grIdx:  options["channel"].(uint64),

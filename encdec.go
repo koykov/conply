@@ -3,9 +3,9 @@ package conply
 import "encoding/json"
 
 // Common data marshaller.
-func Marshal(data interface{}, indent bool) (string, error) {
+func Marshal(data any, indent bool) (string, error) {
 	var (
-		b []byte
+		b   []byte
 		err error
 	)
 	if indent {
@@ -20,7 +20,7 @@ func Marshal(data interface{}, indent bool) (string, error) {
 }
 
 // Common unmarshaller.
-func Unmarshal(data string, value interface{}) error {
+func Unmarshal(data string, value any) error {
 	err := json.Unmarshal([]byte(data), &value)
 	if err != nil {
 		return err
@@ -29,7 +29,7 @@ func Unmarshal(data string, value interface{}) error {
 }
 
 // Marshall data direct to file.
-func MarshalFile(path string, data interface{}, indent bool) error {
+func MarshalFile(path string, data any, indent bool) error {
 	value, err := Marshal(data, indent)
 	if err != nil {
 		return err
@@ -38,7 +38,7 @@ func MarshalFile(path string, data interface{}, indent bool) error {
 }
 
 // Read file contents and unmarshal it.
-func UnmarshalFile(path string, value interface{}) error {
+func UnmarshalFile(path string, value any) error {
 	contents, err := FilePull(path)
 	if err != nil {
 		return err

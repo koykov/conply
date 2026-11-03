@@ -49,7 +49,7 @@ type Player struct {
 }
 
 // The constructor.
-func NewPlayer(verbose *v.Verbose, options map[string]interface{}) *Player {
+func NewPlayer(verbose *v.Verbose, options map[string]any) *Player {
 	ply := Player{
 		station: options["station"].(*Station),
 		cache:   make(ChannelsCache, 0),

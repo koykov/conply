@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-type Options map[string]interface{}
+type Options map[string]any
 
 func (o *Options) PrettyPrint() string {
 	var res []string
