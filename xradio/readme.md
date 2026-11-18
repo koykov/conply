@@ -61,3 +61,18 @@ $GOPATH/bin/xradio rockradio.com
 ```
 
 Check option **--help** to see all possibility options.
+
+## HTTP proxy
+
+If the station is not available from your network, set an HTTP proxy in `~/.config/xradio/settings.json`:
+```json
+{
+  "http_proxy": "http://user:pass@host:port"
+}
+```
+
+Both metadata requests and playback then go through the proxy.
+VLC itself cannot use an HTTP proxy, so *xradio* starts a small local relay: VLC plays `http://127.0.0.1:<port>/...`
+and the relay fetches the audio through the proxy. The relay listens on the loopback interface only.
+
+Without the setting, xradio works as before, directly.
