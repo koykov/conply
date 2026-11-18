@@ -74,7 +74,7 @@ func TestNewBrowserClientInjectsHeaders(t *testing.T) {
 			srv, hits := newCapturingServer(t)
 			defer srv.Close()
 
-			client := NewBrowserClient(tt.newUA)
+			client := NewBrowserClient(tt.newUA, "")
 			req, err := http.NewRequest(http.MethodGet, srv.URL, nil)
 			require.NoError(t, err, "http.NewRequest")
 			if tt.requestUA != "" {

@@ -37,6 +37,12 @@ func GetHKPath(bundle string) (string, error) {
 	return path + PS + "hotkeys.json", err
 }
 
+// Get path to settings file.
+func GetSettingsPath(bundle string) (string, error) {
+	path, err := GetConfigDir(bundle)
+	return path + PS + "settings.json", err
+}
+
 // Returns absolute path to cache directory.
 func GetCacheDir(bundle string) (string, error) {
 	usr, err := user.Current()

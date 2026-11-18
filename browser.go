@@ -1,7 +1,9 @@
 package conply
 
 import (
+	"crypto/tls"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -52,14 +54,29 @@ func (t *browserTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 // pass a user-agent based Cloudflare Managed Challenge. An empty ua falls back
 // to DefaultBrowserUA. Accept-Encoding is deliberately left untouched so that
 // Go's transparent gzip handling keeps working.
-func NewBrowserClient(ua string) *http.Client {
+func NewBrowserClient(ua, proxy string) *http.Client {
 	if ua == "" {
 		ua = DefaultBrowserUA
 	}
+
 	var transport = http.DefaultTransport
-	if t, ok := http.DefaultTransport.(*http.Transport); ok {
-		transport = t.Clone()
+
+	if len(proxy) > 0 {
+		proxyURL, err := url.Parse(proxy)
+		if err != nil {
+			panic(err)
+		}
+
+		transport = &http.Transport{
+			Proxy:           http.ProxyURL(proxyURL),
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+	} else {
+		if t, ok := http.DefaultTransport.(*http.Transport); ok {
+			transport = t.Clone()
+		}
 	}
+
 	return &http.Client{
 		Timeout:   30 * time.Second,
 		Transport: &browserTransport{rt: transport, ua: ua},

@@ -57,12 +57,13 @@ func uaCaptureServer(t *testing.T) (*httptest.Server, <-chan string) {
 // user-agent session, but pointed at a test server via Station.API/Station.
 func newTestPlayer(api, station string, key, atoken string, chIdx uint64, uas []string, uaIdx int) *Player {
 	return &Player{
-		atoken:  atoken,
-		station: &Station{API: api, Station: station, Key: key},
-		chIdx:   chIdx,
-		uas:     uas,
-		uaIdx:   uaIdx,
-		session: newSession(uas[uaIdx]),
+		atoken:   atoken,
+		station:  &Station{API: api, Station: station, Key: key},
+		chIdx:    chIdx,
+		uas:      uas,
+		uaIdx:    uaIdx,
+		settings: &Settings{},
+		session:  newSession(uas[uaIdx], ""),
 	}
 }
 
@@ -195,10 +196,11 @@ func TestRetrieveTracks(t *testing.T) {
 			defer srv.Close()
 
 			ply := &Player{
-				atoken:  tt.atoken,
-				station: &Station{API: srv.URL, Key: "testkey"},
-				chIdx:   1,
-				session: newSession(""),
+				atoken:   tt.atoken,
+				station:  &Station{API: srv.URL, Key: "testkey"},
+				chIdx:    1,
+				settings: &Settings{},
+				session:  newSession("", ""),
 			}
 
 			err := ply.RetrieveTracks()
@@ -260,7 +262,7 @@ func TestRotateUA(t *testing.T) {
 			srv, hits := uaCaptureServer(t)
 			defer srv.Close()
 
-			ply := &Player{uas: tt.uas, uaIdx: tt.start, session: newSession("initial-UA")}
+			ply := &Player{uas: tt.uas, uaIdx: tt.start, settings: &Settings{}, session: newSession("initial-UA", "")}
 
 			require.Equal(t, tt.wantOK, ply.rotateUA(), "rotateUA()")
 			assert.Equal(t, tt.wantIdx, ply.uaIdx, "uaIdx")

@@ -35,6 +35,7 @@ type Player struct {
 	chIdx   uint64
 
 	session SessionProvider
+	relay   Relay
 	uas     []string
 	uaIdx   int
 
@@ -44,6 +45,8 @@ type Player struct {
 	signals  map[string]chan bool
 	sigUtime int64
 	muxDl    sync.Mutex
+
+	settings *Settings
 
 	verbose *v.Verbose
 }
@@ -64,10 +67,11 @@ func NewPlayer(verbose *v.Verbose, options map[string]any) *Player {
 		signals: map[string]chan bool{
 			"next": make(chan bool),
 		},
-		verbose: verbose,
+		settings: &Settings{},
+		verbose:  verbose,
 	}
 	ply.uaIdx = rand.Intn(len(ply.uas))
-	ply.session = newSession(ply.uas[ply.uaIdx])
+	ply.session = newSession(ply.uas[ply.uaIdx], ply.settings.HTTPProxy)
 
 	ply.verbose.Info(Bundle + " " + Version)
 
@@ -81,7 +85,7 @@ func (ply *Player) rotateUA() bool {
 		return false
 	}
 	ply.uaIdx = (ply.uaIdx + 1) % len(ply.uas)
-	ply.session = newSession(ply.uas[ply.uaIdx])
+	ply.session = newSession(ply.uas[ply.uaIdx], ply.settings.HTTPProxy)
 	return true
 }
 
@@ -120,19 +124,45 @@ func (ply *Player) Init() error {
 		}
 	}
 
-	// Initialize VLC player.
+	settingsPath, _ := conply.GetSettingsPath(Bundle)
+	if conply.FileExists(settingsPath) {
+		ply.verbose.Debug2("Settings file found")
+		if err := conply.UnmarshalFile(settingsPath, ply.settings); err != nil {
+			ply.verbose.Failf("Failed settings file load: %s", err.Error())
+			return err
+		}
+		ply.verbose.Debug3("Settings file loaded")
+	}
+
 	var err error
+
+	// Initialize VLC player.
 	ply.verbose.Debug1("Initialize VLC")
 	if ply.vlc, err = vlc.NewVlc([]string{"--quiet", "--no-video"}); err != nil {
 		return err
 	}
 	ply.verbose.Debug2("VLC is ready")
 
+	// Initialize relay.
+	ply.relay = dummyRelay{}
+	if len(ply.settings.HTTPProxy) > 0 {
+		ply.verbose.Debug1("Initialize HTTP relay")
+		if ply.relay, err = NewRelay(conply.NewBrowserClient(ply.uas[ply.uaIdx], ply.settings.HTTPProxy)); err != nil {
+			return err
+		}
+		ply.verbose.Debug2("HTTP relay is ready")
+	}
+
+	ply.session = newSession(ply.uas[ply.uaIdx], ply.settings.HTTPProxy)
+
 	return nil
 }
 
 // Release player resources.
 func (ply *Player) Release() error {
+	if err := ply.relay.Close(); err != nil {
+		return err
+	}
 	err := ply.vlc.Release()
 	return err
 }
@@ -207,7 +237,7 @@ func (ply *Player) Play() (err error) {
 	if trackUrl == "" {
 		return errors.New("no playable audio URL for track")
 	}
-	err = ply.vlc.PlayURL(trackUrl)
+	err = ply.vlc.PlayURL(ply.relay.Wrap(trackUrl))
 	if err != nil {
 		return err
 	}

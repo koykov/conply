@@ -21,8 +21,8 @@ type uaSession struct {
 	client *http.Client
 }
 
-func newSession(ua string) *uaSession {
-	return &uaSession{client: conply.NewBrowserClient(ua)}
+func newSession(ua, proxy string) *uaSession {
+	return &uaSession{client: conply.NewBrowserClient(ua, proxy)}
 }
 
 func (s *uaSession) Get(url string) ([]byte, error) {

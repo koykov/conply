@@ -66,7 +66,7 @@ func TestUASessionGet(t *testing.T) {
 			srv := httptest.NewServer(tt.handler)
 			defer srv.Close()
 
-			s := newSession("")
+			s := newSession("", "")
 			body, err := s.Get(srv.URL)
 
 			if !tt.wantErr {
@@ -111,7 +111,7 @@ func TestUASessionGetDrainsErrorBody(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	s := newSession("")
+	s := newSession("", "")
 	_, err := s.Get(srv.URL)
 	require.Error(t, err, "first Get()")
 
@@ -121,6 +121,6 @@ func TestUASessionGetDrainsErrorBody(t *testing.T) {
 }
 
 func TestUASessionName(t *testing.T) {
-	s := newSession("")
+	s := newSession("", "")
 	assert.Equal(t, "user-agent", s.Name(), "Name()")
 }
